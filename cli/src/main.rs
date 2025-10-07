@@ -1,20 +1,37 @@
 mod commands;
 mod utils;
-#[cfg(target_os = "macos")]
-mod tray_api_client;
-#[cfg(target_os = "macos")]
-mod tray_icons;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use std::path::PathBuf;
 
+// Build info from build.rs
+const GIT_HASH: &str = env!("GIT_HASH");
+const GIT_BRANCH: &str = env!("GIT_BRANCH");
+const BUILD_TIME: &str = env!("BUILD_TIME");
+const GIT_DIRTY: &str = env!("GIT_DIRTY");
+const RUSTC_VERSION: &str = env!("RUSTC_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+fn print_version_info() {
+    let dirty_marker = if GIT_DIRTY == "dirty" { "-dirty" } else { "" };
+    
+    println!("{}", "SecureFox".bold());
+    println!("─────────────────────────────────────────");
+    println!("Version:      {}", VERSION.cyan());
+    println!("Git Branch:   {}", GIT_BRANCH.cyan());
+    println!("Git Commit:   {}{}", GIT_HASH.cyan(), dirty_marker.yellow());
+    println!("Build Time:   {}", BUILD_TIME.cyan());
+    println!("Rust Version: {}", RUSTC_VERSION.cyan());
+}
+
 /// SecureFox - Local-first password manager
 #[derive(Parser, Debug)]
 #[command(name = "securefox")]
-#[command(author, version, about, long_about = None)]
-#[command(propagate_version = true)]
+#[command(author, about, long_about = None)]
+#[command(disable_version_flag = true)]
+#[command(propagate_version = false)]
 struct Cli {
     /// Path to vault file
     #[arg(short, long, env = "SECUREFOX_VAULT")]
@@ -30,6 +47,42 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Show detailed version information
+    Version,
+
+    /// Vault management commands
+    Vault {
+        #[command(subcommand)]
+        command: VaultCommands,
+    },
+
+    /// Item management commands
+    Item {
+        #[command(subcommand)]
+        command: ItemCommands,
+    },
+
+    /// Data import/export commands
+    Data {
+        #[command(subcommand)]
+        command: DataCommands,
+    },
+
+    /// Utility tools
+    Tools {
+        #[command(subcommand)]
+        command: ToolsCommands,
+    },
+
+    /// Background service management
+    Service {
+        #[command(subcommand)]
+        command: ServiceCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum VaultCommands {
     /// Initialize a new vault
     Init {
         /// Remote git repository URL
@@ -39,11 +92,45 @@ enum Commands {
         #[arg(long, default_value = "pbkdf2")]
         kdf: String,
     },
-    /// Start the system tray application
-    #[cfg(target_os = "macos")]
-    Tray,
 
-    /// Add a new item to the vault
+    /// Lock the vault
+    Lock,
+
+    /// Unlock the vault
+    Unlock {
+        /// Remember in keychain
+        #[arg(short, long)]
+        remember: bool,
+    },
+
+    /// Sync with git remote
+    Sync {
+        #[command(subcommand)]
+        command: SyncCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum SyncCommands {
+    /// Push changes to remote
+    Push,
+
+    /// Pull changes from remote
+    Pull,
+
+    /// Configure git remote URL
+    Config {
+        /// Remote git repository URL
+        url: String,
+    },
+
+    /// Show sync status
+    Status,
+}
+
+#[derive(Subcommand, Debug)]
+enum ItemCommands {
+    /// Add a new item
     Add {
         /// Item name
         name: String,
@@ -65,11 +152,11 @@ enum Commands {
         totp: Option<String>,
     },
 
-    /// List items in the vault
+    /// List items
     List {
-        /// Filter by folder
-        #[arg(short, long)]
-        folder: Option<String>,
+        /// Filter by type
+        #[arg(short = 't', long)]
+        item_type: Option<String>,
 
         /// Search query
         #[arg(short, long)]
@@ -80,26 +167,10 @@ enum Commands {
         detailed: bool,
     },
 
-    /// Edit an existing item
-    Edit {
-        /// Item ID or name
-        item: String,
-    },
-
-    /// Remove an item from the vault
-    Remove {
-        /// Item ID or name
-        item: String,
-
-        /// Force removal without confirmation
-        #[arg(short, long)]
-        force: bool,
-    },
-
-    /// Show an item's details
+    /// Show item details
     Show {
         /// Item ID or name
-        item: String,
+        name: String,
 
         /// Copy password to clipboard
         #[arg(short, long)]
@@ -110,6 +181,25 @@ enum Commands {
         totp: bool,
     },
 
+    /// Edit an existing item
+    Edit {
+        /// Item ID or name
+        name: String,
+    },
+
+    /// Remove an item
+    Remove {
+        /// Item ID or name
+        name: String,
+
+        /// Force removal without confirmation
+        #[arg(short, long)]
+        force: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum DataCommands {
     /// Import data from another password manager
     Import {
         /// Import file path
@@ -129,18 +219,10 @@ enum Commands {
         #[arg(short = 'f', long, default_value = "bitwarden")]
         format: String,
     },
+}
 
-    /// Sync with git remote
-    Sync {
-        /// Pull changes from remote
-        #[arg(long)]
-        pull: bool,
-
-        /// Push changes to remote
-        #[arg(long)]
-        push: bool,
-    },
-
+#[derive(Subcommand, Debug)]
+enum ToolsCommands {
     /// Generate a password
     Generate {
         /// Password length
@@ -160,9 +242,21 @@ enum Commands {
         copy: bool,
     },
 
-    /// Start the HTTP API server
-    #[cfg(feature = "serve")]
-    Serve {
+    /// Get TOTP code for an item
+    Totp {
+        /// Item ID or name
+        name: String,
+
+        /// Copy to clipboard
+        #[arg(short, long)]
+        copy: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ServiceCommands {
+    /// Start background service (API + Tray)
+    Start {
         /// Port to listen on
         #[arg(short, long, default_value = "8787")]
         port: u16,
@@ -176,25 +270,32 @@ enum Commands {
         timeout: u64,
     },
 
-    /// Lock the vault
-    Lock,
+    /// Stop background service
+    Stop,
 
-    /// Unlock the vault
-    Unlock {
-        /// Remember in keychain
-        #[arg(short, long)]
-        remember: bool,
+    /// Restart background service
+    Restart {
+        /// Port to listen on
+        #[arg(short, long, default_value = "8787")]
+        port: u16,
+
+        /// Host to bind to
+        #[arg(short = 'H', long, default_value = "127.0.0.1")]
+        host: String,
+
+        /// Unlock timeout in seconds
+        #[arg(short = 't', long, default_value = "900")]
+        timeout: u64,
     },
 
-    /// Get TOTP code for an item
-    Totp {
-        /// Item ID or name
-        item: String,
+    /// Show service status
+    Status,
 
-        /// Copy to clipboard
-        #[arg(short, long)]
-        copy: bool,
-    },
+    /// Install as system service (launchd on macOS)
+    Install,
+
+    /// Uninstall system service
+    Uninstall,
 }
 
 #[tokio::main]
@@ -214,68 +315,108 @@ async fn main() -> Result<()> {
 
     // Execute command
     let result = match cli.command {
-        Commands::Init { remote, kdf } => {
-            commands::init::execute(vault_path, remote, kdf).await
+        Commands::Version => {
+            print_version_info();
+            return Ok(());
         }
-        Commands::Add {
-            name,
-            item_type,
-            username,
-            generate,
-            totp,
-        } => {
-            commands::add::execute(vault_path, name, item_type, username, generate, totp).await
-        }
-        Commands::List {
-            folder,
-            search,
-            detailed,
-        } => {
-            commands::list::execute(vault_path, folder, search, detailed).await
-        }
-        Commands::Edit { item } => {
-            commands::edit::execute(vault_path, item).await
-        }
-        Commands::Remove { item, force } => {
-            commands::remove::execute(vault_path, item, force).await
-        }
-        Commands::Show { item, copy, totp } => {
-            commands::show::execute(vault_path, item, copy, totp).await
-        }
-        Commands::Import { file, format } => {
-            commands::import::execute(vault_path, file, format).await
-        }
-        Commands::Export { file, format } => {
-            commands::export::execute(vault_path, file, format).await
-        }
-        Commands::Sync { pull, push } => {
-            commands::sync::execute(vault_path, pull, push).await
-        }
-        Commands::Generate {
-            length,
-            numbers,
-            symbols,
-            copy,
-        } => {
-            commands::generate::execute(length, numbers, symbols, copy).await
-        }
-        #[cfg(feature = "serve")]
-        Commands::Serve { port, host, timeout } => {
-            commands::serve::execute(vault_path, host, port, timeout).await
-        }
-        Commands::Lock => {
-            commands::lock::execute(vault_path).await
-        }
-        Commands::Unlock { remember } => {
-            commands::unlock::execute(vault_path, remember).await
-        }
-        Commands::Totp { item, copy } => {
-            commands::totp::execute(vault_path, item, copy).await
-        }
-        #[cfg(target_os = "macos")]
-        Commands::Tray => {
-            commands::tray::execute().await
-        }
+        
+        Commands::Vault { command } => match command {
+            VaultCommands::Init { remote, kdf } => {
+                commands::init::execute(vault_path, remote, kdf).await
+            }
+            VaultCommands::Lock => {
+                commands::lock::execute(vault_path).await
+            }
+            VaultCommands::Unlock { remember } => {
+                commands::unlock::execute(vault_path, remember).await
+            }
+            VaultCommands::Sync { command } => match command {
+                SyncCommands::Push => {
+                    commands::sync::execute(vault_path, false, true).await
+                }
+                SyncCommands::Pull => {
+                    commands::sync::execute(vault_path, true, false).await
+                }
+                SyncCommands::Config { url } => {
+                    commands::sync_config::execute(vault_path, url).await
+                }
+                SyncCommands::Status => {
+                    commands::sync_status::execute(vault_path).await
+                }
+            },
+        },
+
+        Commands::Item { command } => match command {
+            ItemCommands::Add {
+                name,
+                item_type,
+                username,
+                generate,
+                totp,
+            } => {
+                commands::add::execute(vault_path, name, item_type, username, generate, totp).await
+            }
+            ItemCommands::List {
+                item_type,
+                search,
+                detailed,
+            } => {
+                commands::list::execute(vault_path, item_type, search, detailed).await
+            }
+            ItemCommands::Show { name, copy, totp } => {
+                commands::show::execute(vault_path, name, copy, totp).await
+            }
+            ItemCommands::Edit { name } => {
+                commands::edit::execute(vault_path, name).await
+            }
+            ItemCommands::Remove { name, force } => {
+                commands::remove::execute(vault_path, name, force).await
+            }
+        },
+
+        Commands::Data { command } => match command {
+            DataCommands::Import { file, format } => {
+                commands::import::execute(vault_path, file, format).await
+            }
+            DataCommands::Export { file, format } => {
+                commands::export::execute(vault_path, file, format).await
+            }
+        },
+
+        Commands::Tools { command } => match command {
+            ToolsCommands::Generate {
+                length,
+                numbers,
+                symbols,
+                copy,
+            } => {
+                commands::generate::execute(length, numbers, symbols, copy).await
+            }
+            ToolsCommands::Totp { name, copy } => {
+                commands::totp::execute(vault_path, name, copy).await
+            }
+        },
+
+        Commands::Service { command } => match command {
+            ServiceCommands::Start { port, host, timeout } => {
+                commands::service_start::execute(vault_path, host, port, timeout).await
+            }
+            ServiceCommands::Stop => {
+                commands::service_stop::execute().await
+            }
+            ServiceCommands::Restart { port, host, timeout } => {
+                commands::service_restart::execute(vault_path, host, port, timeout).await
+            }
+            ServiceCommands::Status => {
+                commands::service_status::execute().await
+            }
+            ServiceCommands::Install => {
+                commands::service_install::execute().await
+            }
+            ServiceCommands::Uninstall => {
+                commands::service_uninstall::execute().await
+            }
+        },
     };
 
     match result {

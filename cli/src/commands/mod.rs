@@ -13,8 +13,15 @@ pub mod show;
 pub mod sync;
 pub mod totp;
 pub mod unlock;
-#[cfg(target_os = "macos")]
-pub mod tray;
 
-#[cfg(feature = "serve")]
-pub mod serve;
+// Sync subcommands
+pub mod sync_config;
+pub mod sync_status;
+
+// Service commands
+pub mod service_start;
+pub mod service_stop;
+pub mod service_restart;
+pub mod service_status;
+pub mod service_install;
+pub mod service_uninstall;

@@ -63,5 +63,8 @@ cocoa = "0.25"
 default = ["serve"]
 serve = ["dep:club-gclmit-securefox-api"]
 
+[build-dependencies]
+chrono = "0.4"
+
 [dev-dependencies]
 tempfile = "3.8"
