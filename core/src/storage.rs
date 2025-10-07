@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::crypto::{decrypt_with_password, encrypt_with_password, EncryptedData};
+use crate::crypto::{decrypt_with_password, encrypt_with_password, encrypt_with_password_and_kdf, EncryptedData, KdfParams};
 use crate::errors::{Error, Result};
 use crate::models::Vault;
 
@@ -63,15 +63,38 @@ impl VaultStorage {
         Ok(())
     }
 
-    /// Save a vault with encryption
+    /// Save a vault with encryption using default KDF (PBKDF2)
     pub fn save(&self, vault: &Vault, password: &str) -> Result<()> {
         self.ensure_directory()?;
 
         // Serialize vault to JSON
         let json = serde_json::to_vec(vault)?;
 
-        // Encrypt the JSON
+        // Encrypt the JSON with default KDF
         let encrypted_data = encrypt_with_password(&json, password)?;
+
+        // Create encrypted vault container
+        let encrypted_vault = EncryptedVault {
+            version: "1.0.0".to_string(),
+            encrypted_data,
+        };
+
+        // Save to file
+        let contents = serde_json::to_string_pretty(&encrypted_vault)?;
+        fs::write(&self.vault_path, contents)?;
+
+        Ok(())
+    }
+
+    /// Save a vault with encryption using specified KDF
+    pub fn save_with_kdf(&self, vault: &Vault, password: &str, kdf_params: KdfParams) -> Result<()> {
+        self.ensure_directory()?;
+
+        // Serialize vault to JSON
+        let json = serde_json::to_vec(vault)?;
+
+        // Encrypt the JSON with specified KDF
+        let encrypted_data = encrypt_with_password_and_kdf(&json, password, kdf_params)?;
 
         // Create encrypted vault container
         let encrypted_vault = EncryptedVault {

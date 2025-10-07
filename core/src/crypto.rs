@@ -9,8 +9,10 @@ use argon2::{
     Argon2, Params, Version,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use pbkdf2::{pbkdf2_hmac_array};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::errors::{Error, Result};
@@ -21,14 +23,18 @@ const KEY_SIZE: usize = 32;
 /// Size of the nonce in bytes for AES-GCM-SIV
 const NONCE_SIZE: usize = 12;
 
-/// Argon2 memory cost in KB
-const ARGON2_MEMORY_KB: u32 = 65536;
+/// Argon2 memory cost in KB (19MB - OWASP recommended minimum)
+const ARGON2_MEMORY_KB: u32 = 19456;
 
-/// Argon2 iterations
-const ARGON2_ITERATIONS: u32 = 3;
+/// Argon2 iterations (OWASP recommended minimum)
+const ARGON2_ITERATIONS: u32 = 2;
 
-/// Argon2 parallelism
-const ARGON2_PARALLELISM: u32 = 4;
+/// Argon2 parallelism (single thread for better compatibility)
+const ARGON2_PARALLELISM: u32 = 1;
+
+/// PBKDF2 iterations (OWASP recommended: 600,000 for PBKDF2-HMAC-SHA256)
+/// We use 100,000 for better UX while still maintaining good security
+const PBKDF2_ITERATIONS: u32 = 100_000;
 
 /// Encryption key wrapper with automatic zeroing on drop
 #[derive(Clone, Zeroize, ZeroizeOnDrop)]
@@ -57,23 +63,58 @@ impl EncryptionKey {
     }
 }
 
+/// KDF algorithm type
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum KdfAlgorithm {
+    Argon2id,
+    Pbkdf2,
+}
+
 /// Parameters for key derivation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KdfParams {
+    pub algorithm: KdfAlgorithm,
     pub salt: String,
-    pub memory_kb: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_kb: Option<u32>,
     pub iterations: u32,
-    pub parallelism: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parallelism: Option<u32>,
 }
 
 impl Default for KdfParams {
     fn default() -> Self {
+        // Use PBKDF2 by default for better performance
+        // Generate random salt bytes and encode as base64
+        let mut salt_bytes = [0u8; 16];
+        OsRng.fill_bytes(&mut salt_bytes);
+        
         Self {
-            salt: SaltString::generate(&mut OsRng).to_string(),
-            memory_kb: ARGON2_MEMORY_KB,
-            iterations: ARGON2_ITERATIONS,
-            parallelism: ARGON2_PARALLELISM,
+            algorithm: KdfAlgorithm::Pbkdf2,
+            salt: BASE64.encode(&salt_bytes),
+            memory_kb: None,
+            iterations: PBKDF2_ITERATIONS,
+            parallelism: None,
         }
+    }
+}
+
+impl KdfParams {
+    /// Create Argon2id params
+    pub fn argon2() -> Self {
+        Self {
+            algorithm: KdfAlgorithm::Argon2id,
+            salt: SaltString::generate(&mut OsRng).to_string(),
+            memory_kb: Some(ARGON2_MEMORY_KB),
+            iterations: ARGON2_ITERATIONS,
+            parallelism: Some(ARGON2_PARALLELISM),
+        }
+    }
+    
+    /// Create PBKDF2 params
+    pub fn pbkdf2() -> Self {
+        Self::default()
     }
 }
 
@@ -85,33 +126,55 @@ pub struct EncryptedData {
     pub ciphertext: String,
 }
 
-/// Derive an encryption key from a password using Argon2id
+/// Derive an encryption key from a password
 pub fn derive_key(password: &str, params: &KdfParams) -> Result<EncryptionKey> {
-    let argon2_params = Params::new(
-        params.memory_kb * 1024,
-        params.iterations,
-        params.parallelism,
-        Some(KEY_SIZE),
-    )
-    .map_err(|e| Error::Encryption(format!("Invalid Argon2 params: {}", e)))?;
+    match params.algorithm {
+        KdfAlgorithm::Argon2id => {
+            let memory_kb = params.memory_kb.unwrap_or(ARGON2_MEMORY_KB);
+            let parallelism = params.parallelism.unwrap_or(ARGON2_PARALLELISM);
+            
+            let argon2_params = Params::new(
+                memory_kb * 1024,
+                params.iterations,
+                parallelism,
+                Some(KEY_SIZE),
+            )
+            .map_err(|e| Error::Encryption(format!("Invalid Argon2 params: {}", e)))?;
 
-    let argon2 = Argon2::new(
-        argon2::Algorithm::Argon2id,
-        Version::V0x13,
-        argon2_params,
-    );
+            let argon2 = Argon2::new(
+                argon2::Algorithm::Argon2id,
+                Version::V0x13,
+                argon2_params,
+            );
 
-    let salt = SaltString::from_b64(&params.salt)
-        .map_err(|e| Error::Encryption(format!("Invalid salt: {}", e)))?;
+            let salt = SaltString::from_b64(&params.salt)
+                .map_err(|e| Error::Encryption(format!("Invalid salt: {}", e)))?;
 
-    let password_hash = argon2
-        .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| Error::Encryption(format!("Key derivation failed: {}", e)))?;
+            let password_hash = argon2
+                .hash_password(password.as_bytes(), &salt)
+                .map_err(|e| Error::Encryption(format!("Key derivation failed: {}", e)))?;
 
-    let hash_bytes = password_hash.hash.unwrap();
-    let key_bytes = hash_bytes.as_bytes();
+            let hash_bytes = password_hash.hash.unwrap();
+            let key_bytes = hash_bytes.as_bytes();
 
-    EncryptionKey::from_bytes(key_bytes)
+            EncryptionKey::from_bytes(key_bytes)
+        }
+        KdfAlgorithm::Pbkdf2 => {
+            // Decode the base64 salt
+            let salt_bytes = BASE64
+                .decode(&params.salt)
+                .map_err(|e| Error::Encryption(format!("Invalid salt: {}", e)))?;
+            
+            // Derive key using PBKDF2-HMAC-SHA256
+            let key = pbkdf2_hmac_array::<Sha256, KEY_SIZE>(
+                password.as_bytes(),
+                &salt_bytes,
+                params.iterations,
+            );
+            
+            Ok(EncryptionKey { key })
+        }
+    }
 }
 
 /// Generate a new random encryption key
@@ -139,9 +202,18 @@ pub fn encrypt(plaintext: &[u8], key: &EncryptionKey) -> Result<EncryptedData> {
     })
 }
 
-/// Encrypt data with a password
+/// Encrypt data with a password using default KDF (PBKDF2)
 pub fn encrypt_with_password(plaintext: &[u8], password: &str) -> Result<EncryptedData> {
     let kdf_params = KdfParams::default();
+    encrypt_with_password_and_kdf(plaintext, password, kdf_params)
+}
+
+/// Encrypt data with a password using specified KDF params
+pub fn encrypt_with_password_and_kdf(
+    plaintext: &[u8], 
+    password: &str, 
+    kdf_params: KdfParams
+) -> Result<EncryptedData> {
     let key = derive_key(password, &kdf_params)?;
 
     let cipher = Aes256GcmSiv::new_from_slice(key.as_bytes())

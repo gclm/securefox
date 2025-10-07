@@ -1,10 +1,10 @@
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Password};
-use club_gclmit_securefox_core::{prelude::*, storage::VaultStorage};
+use club_gclmit_securefox_core::{prelude::*, storage::VaultStorage, crypto::KdfParams};
 use std::path::PathBuf;
 
-pub async fn execute(vault_path: Option<PathBuf>, remote: Option<String>) -> Result<()> {
+pub async fn execute(vault_path: Option<PathBuf>, remote: Option<String>, kdf: String) -> Result<()> {
     println!("{}", "Initializing new SecureFox vault...".cyan().bold());
 
     // Get vault path
@@ -22,11 +22,31 @@ pub async fn execute(vault_path: Option<PathBuf>, remote: Option<String>) -> Res
         .with_confirmation("Confirm master password", "Passwords do not match")
         .interact()?;
 
+    // Create KDF params based on user choice
+    let kdf_params = match kdf.to_lowercase().as_str() {
+        "argon2" | "argon2id" => {
+            println!("{}", "Using Argon2id KDF (higher security, slower)".yellow());
+            println!("{}", "⚠ Note: Argon2 provides stronger protection against GPU-based attacks".yellow());
+            println!("{}", "  but may take 1-2 seconds for each unlock operation.".yellow());
+            KdfParams::argon2()
+        }
+        "pbkdf2" => {
+            println!("{}", "Using PBKDF2 KDF (standard security, faster)".cyan());
+            println!("{}", "ℹ PBKDF2 provides good security for most use cases and is widely compatible.".cyan());
+            KdfParams::pbkdf2()
+        }
+        _ => {
+            return Err(anyhow::anyhow!("Invalid KDF algorithm. Use 'pbkdf2' or 'argon2'"));
+        }
+    };
+
+    println!("Encrypting vault...");
+    
     // Create new vault
     let vault = Vault::new();
 
-    // Save vault
-    storage.save(&vault, &password)?;
+    // Save vault with specified KDF
+    storage.save_with_kdf(&vault, &password, kdf_params)?;
 
     println!("{}", "✓ Vault initialized successfully".green());
 

@@ -35,6 +35,9 @@ enum Commands {
         /// Remote git repository URL
         #[arg(short, long)]
         remote: Option<String>,
+        /// KDF algorithm to use (pbkdf2 or argon2)
+        #[arg(long, default_value = "pbkdf2")]
+        kdf: String,
     },
     /// Start the system tray application
     #[cfg(target_os = "macos")]
@@ -211,8 +214,8 @@ async fn main() -> Result<()> {
 
     // Execute command
     let result = match cli.command {
-        Commands::Init { remote } => {
-            commands::init::execute(vault_path, remote).await
+        Commands::Init { remote, kdf } => {
+            commands::init::execute(vault_path, remote, kdf).await
         }
         Commands::Add {
             name,
