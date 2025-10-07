@@ -9,6 +9,11 @@ interface UIState {
   activeView: 'list' | 'favorites' | 'recent' | 'generator' | 'cards' | 'notes';
   theme: 'light' | 'dark' | 'system';
   
+  // Modal states
+  isAddItemModalOpen: boolean;
+  selectedItemId: string | null;
+  detailViewType: 'login' | 'note' | 'card' | null;
+  
   // Actions
   showNotification: (notification: Omit<Notification, 'id'>) => void;
   dismissNotification: (id: string) => void;
@@ -17,6 +22,9 @@ interface UIState {
   setSettingsOpen: (open: boolean) => void;
   setActiveView: (view: UIState['activeView']) => void;
   setTheme: (theme: UIState['theme']) => void;
+  setAddItemModalOpen: (open: boolean) => void;
+  showDetailView: (itemId: string, type: 'login' | 'note' | 'card') => void;
+  closeDetailView: () => void;
 }
 
 const useUIStore = create<UIState>((set) => ({
@@ -26,6 +34,11 @@ const useUIStore = create<UIState>((set) => ({
   isSettingsOpen: false,
   activeView: 'list',
   theme: 'system',
+  
+  // Modal states
+  isAddItemModalOpen: false,
+  selectedItemId: null,
+  detailViewType: null,
   
   // Show notification
   showNotification: (notification) => {
@@ -91,6 +104,21 @@ const useUIStore = create<UIState>((set) => ({
     
     // Store preference
     chrome.storage.local.set({ theme });
+  },
+  
+  // Set add item modal state
+  setAddItemModalOpen: (open) => {
+    set({ isAddItemModalOpen: open });
+  },
+  
+  // Show detail view
+  showDetailView: (itemId, type) => {
+    set({ selectedItemId: itemId, detailViewType: type });
+  },
+  
+  // Close detail view
+  closeDetailView: () => {
+    set({ selectedItemId: null, detailViewType: null });
   },
 }));
 

@@ -18,6 +18,9 @@ import { ItemType } from '@/types';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { SettingsView } from '@/components/SettingsView';
 import { DebugView } from '@/components/DebugView';
+import { AddItemModal } from '@/components/AddItemModal';
+import { LoginDetailView } from '@/components/LoginDetailView';
+import { NoteDetailView } from '@/components/NoteDetailView';
 
 export const MainView: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
@@ -35,7 +38,7 @@ export const MainView: React.FC = () => {
     items,
     isLoading 
   } = useVaultStore();
-  const { activeView, setActiveView } = useUIStore();
+  const { activeView, setActiveView, setAddItemModalOpen, detailViewType, closeDetailView } = useUIStore();
   
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
 
@@ -58,18 +61,21 @@ export const MainView: React.FC = () => {
   };
 
   const handleAddItem = () => {
-    // 显示通知，功能开发中
-    const { showNotification } = useUIStore.getState();
-    showNotification({
-      type: 'info',
-      title: '功能开发中',
-      message: '添加密码功能即将推出'
-    });
+    setAddItemModalOpen(true);
   };
 
   // 如果显示设置页面，渲染设置视图
   if (showSettings) {
     return <SettingsView onBack={() => setShowSettings(false)} />;
+  }
+  
+  // 如果显示详情页面
+  if (detailViewType === 'login') {
+    return <LoginDetailView onBack={closeDetailView} />;
+  }
+  
+  if (detailViewType === 'note') {
+    return <NoteDetailView onBack={closeDetailView} />;
   }
   
   // 如果显示调试页面，渲染调试视图
@@ -256,6 +262,9 @@ export const MainView: React.FC = () => {
           </button>
         </div>
       </nav>
+      
+      {/* Add Item Modal */}
+      <AddItemModal />
     </div>
   );
 };

@@ -137,8 +137,8 @@ export const EntryList: React.FC<EntryListProps> = ({ view }) => {
             key={item.id}
             className="flex items-center gap-4 p-4 rounded-xl bg-white dark:bg-gray-800 hover:shadow-lg cursor-pointer transition-all duration-200 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 group"
             onClick={() => {
-              // TODO: Handle item click (show details/fill)
-              console.log('Clicked item:', item.name);
+              const { showDetailView } = useUIStore.getState();
+              showDetailView(item.id, 'login');
             }}
           >
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">

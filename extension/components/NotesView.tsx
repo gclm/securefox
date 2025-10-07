@@ -75,7 +75,10 @@ export const NotesView: React.FC = () => {
             {filteredNotes.map(note => (
               <div
                 key={note.id}
-                onClick={() => setSelectedNote(note)}
+                onClick={() => {
+                  const { showDetailView } = useUIStore.getState();
+                  showDetailView(note.id, 'note');
+                }}
                 className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-all hover:shadow-lg group"
               >
                 <div className="flex items-start justify-between">
