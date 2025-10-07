@@ -206,8 +206,12 @@ pub mod totp {
             .and_then(|l| l.totp)
             .ok_or(ApiError::BadRequest("Item has no TOTP".to_string()))?;
         
-        use club_gclmit_securefox_core::totp::TotpConfig;
-        let config = TotpConfig::new(totp_secret);
+        // Parse and validate TOTP secret (handles formatting, whitespace, etc.)
+        use club_gclmit_securefox_core::totp::{parse_totp_secret, TotpConfig};
+        let cleaned_secret = parse_totp_secret(&totp_secret)
+            .map_err(|e| ApiError::BadRequest(format!("Invalid TOTP secret: {}", e)))?;
+        
+        let config = TotpConfig::new(cleaned_secret);
         
         Ok(Json(TotpResponse {
             code: config.generate()?,

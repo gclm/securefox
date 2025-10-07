@@ -32,12 +32,14 @@ pub fn create_app(vault_path: PathBuf, unlock_timeout: Duration) -> Router {
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers(Any);
 
-    // API routes
-    let api_routes = Router::new()
-        // Auth routes
+    // Public auth routes (no authentication required)
+    let public_auth_routes = Router::new()
         .route("/unlock", post(handlers::auth::unlock))
+        .route("/status", get(handlers::auth::status));
+
+    // Protected routes (authentication required)
+    let protected_routes = Router::new()
         .route("/lock", post(handlers::auth::lock))
-        .route("/status", get(handlers::auth::status))
         
         // Item CRUD routes
         .route("/items", get(handlers::items::list_items))
@@ -61,6 +63,11 @@ pub fn create_app(vault_path: PathBuf, unlock_timeout: Duration) -> Router {
             state.clone(),
             auth::auth_middleware,
         ));
+
+    // Combine public and protected routes
+    let api_routes = Router::new()
+        .merge(public_auth_routes)
+        .merge(protected_routes);
 
     // Health check route (no auth required)
     let health_routes = Router::new()
