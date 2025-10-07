@@ -65,6 +65,11 @@ impl VaultStorage {
 
     /// Save a vault with encryption using default KDF (PBKDF2)
     pub fn save(&self, vault: &Vault, password: &str) -> Result<()> {
+        self.save_internal(vault, password, true)
+    }
+    
+    /// Internal save method with optional sync
+    fn save_internal(&self, vault: &Vault, password: &str, trigger_sync: bool) -> Result<()> {
         self.ensure_directory()?;
 
         // Serialize vault to JSON
@@ -82,6 +87,12 @@ impl VaultStorage {
         // Save to file
         let contents = serde_json::to_string_pretty(&encrypted_vault)?;
         fs::write(&self.vault_path, contents)?;
+        
+        // Trigger git sync if enabled and configured for PushOnChange
+        #[cfg(feature = "git")]
+        if trigger_sync {
+            self.try_auto_sync(vault)?;
+        }
 
         Ok(())
     }
@@ -105,7 +116,32 @@ impl VaultStorage {
         // Save to file
         let contents = serde_json::to_string_pretty(&encrypted_vault)?;
         fs::write(&self.vault_path, contents)?;
+        
+        // Trigger git sync if enabled and configured for PushOnChange
+        #[cfg(feature = "git")]
+        self.try_auto_sync(vault)?;
 
+        Ok(())
+    }
+    
+    /// Try to auto-sync if configured
+    #[cfg(feature = "git")]
+    fn try_auto_sync(&self, vault: &Vault) -> Result<()> {
+        use crate::git_sync::GitSync;
+        
+        // Check if sync is configured and enabled
+        if let Some(sync_config) = &vault.sync_config {
+            if sync_config.enabled && sync_config.mode.is_push_on_change() {
+                // Get vault directory (parent of vault file)
+                if let Some(vault_dir) = self.vault_path.parent() {
+                    // Try to sync, but don't fail the save operation if sync fails
+                    if let Ok(git_sync) = GitSync::init(vault_dir) {
+                        let _ = git_sync.auto_commit_push("Auto-sync: vault updated");
+                    }
+                }
+            }
+        }
+        
         Ok(())
     }
 

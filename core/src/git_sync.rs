@@ -354,8 +354,108 @@ impl GitSync {
         
         Ok(result)
     }
+    
+    /// Check if there are local changes (uncommitted or unpushed)
+    pub fn has_local_changes(&self) -> Result<bool> {
+        // Check for uncommitted changes
+        let statuses = self.repo.statuses(None)?;
+        if !statuses.is_empty() {
+            return Ok(true);
+        }
+        
+        // Check for unpushed commits
+        if let Ok(head) = self.repo.head() {
+            if let Ok(local_oid) = head.target().ok_or_else(|| Error::Other("No HEAD target".to_string())) {
+                if let Ok(_remote) = self.repo.find_remote(&self.remote_name) {
+                    let remote_branch = format!("refs/remotes/{}/{}", self.remote_name, self.branch_name);
+                    if let Ok(remote_ref) = self.repo.find_reference(&remote_branch) {
+                        if let Some(remote_oid) = remote_ref.target() {
+                            if local_oid != remote_oid {
+                                // Check if local is ahead
+                                if let Ok((ahead, _behind)) = self.repo.graph_ahead_behind(local_oid, remote_oid) {
+                                    if ahead > 0 {
+                                        return Ok(true);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(false)
+    }
+    
+    /// Check if there are remote updates available
+    pub fn has_remote_updates(&self) -> Result<bool> {
+        // Fetch remote info without merging
+        let mut remote = self.repo.find_remote(&self.remote_name)?;
+        
+        let mut callbacks = RemoteCallbacks::new();
+        callbacks.credentials(|_url, username, cred_type| {
+            self.get_credentials(username, cred_type)
+        });
+        callbacks.certificate_check(|_cert, _host| {
+            Ok(git2::CertificateCheckStatus::CertificateOk)
+        });
+        
+        let mut fetch_options = FetchOptions::new();
+        fetch_options.remote_callbacks(callbacks);
+        
+        // Fetch remote references
+        remote.fetch(&[&self.branch_name], Some(&mut fetch_options), None)?;
+        
+        // Compare local and remote HEAD
+        if let Ok(head) = self.repo.head() {
+            if let Some(local_oid) = head.target() {
+                let remote_branch = format!("refs/remotes/{}/{}", self.remote_name, self.branch_name);
+                if let Ok(remote_ref) = self.repo.find_reference(&remote_branch) {
+                    if let Some(remote_oid) = remote_ref.target() {
+                        if local_oid != remote_oid {
+                            // Check if remote is ahead
+                            if let Ok((_ahead, behind)) = self.repo.graph_ahead_behind(local_oid, remote_oid) {
+                                return Ok(behind > 0);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(false)
+    }
+    
+    /// Smart synchronization: pull if remote has updates, push if local has changes
+    pub fn smart_sync(&self) -> Result<SmartSyncResult> {
+        let mut result = SmartSyncResult::default();
+        
+        // Check and pull remote updates
+        if self.has_remote_updates()? {
+            self.pull()?;
+            result.pulled = true;
+        } else {
+            result.already_up_to_date = true;
+        }
+        
+        // Check and push local changes
+        if self.has_local_changes()? {
+            self.auto_commit("Auto sync")?;
+            self.push()?;
+            result.pushed = true;
+        }
+        
+        Ok(result)
+    }
 }
 
+/// Result of a smart sync operation
+#[derive(Debug, Default)]
+pub struct SmartSyncResult {
+    pub pulled: bool,
+    pub pushed: bool,
+    pub already_up_to_date: bool,
+}
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -17,6 +17,9 @@ pub mod unlock;
 // Sync subcommands
 pub mod sync_config;
 pub mod sync_status;
+pub mod sync_enable;
+pub mod sync_disable;
+pub mod sync_show;
 
 // Service commands
 pub mod service_start;

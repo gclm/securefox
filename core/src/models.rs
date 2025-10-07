@@ -13,6 +13,8 @@ pub struct Vault {
     pub items: Vec<Item>,
     pub version: String,
     pub sync_time: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync_config: Option<SyncConfig>,
 }
 
 impl Vault {
@@ -23,6 +25,7 @@ impl Vault {
             items: Vec::new(),
             version: "1.0.0".to_string(),
             sync_time: Utc::now(),
+            sync_config: None,
         }
     }
 
@@ -292,6 +295,99 @@ impl FieldType {
     pub const TEXT: Self = Self(0);
     pub const HIDDEN: Self = Self(1);
     pub const BOOLEAN: Self = Self(2);
+}
+
+/// Sync configuration for git synchronization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncConfig {
+    pub enabled: bool,
+    pub mode: SyncMode,
+}
+
+impl SyncConfig {
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            mode: SyncMode::Manual,
+        }
+    }
+    
+    pub fn manual() -> Self {
+        Self {
+            enabled: true,
+            mode: SyncMode::Manual,
+        }
+    }
+    
+    pub fn auto_pull(interval_seconds: u64) -> Self {
+        Self {
+            enabled: true,
+            mode: SyncMode::AutoPull { interval_seconds },
+        }
+    }
+    
+    pub fn push_on_change() -> Self {
+        Self {
+            enabled: true,
+            mode: SyncMode::PushOnChange,
+        }
+    }
+    
+    pub fn full(interval_seconds: u64) -> Self {
+        Self {
+            enabled: true,
+            mode: SyncMode::Full { interval_seconds },
+        }
+    }
+}
+
+impl Default for SyncConfig {
+    fn default() -> Self {
+        Self::manual()
+    }
+}
+
+/// Synchronization modes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum SyncMode {
+    /// Manual synchronization only
+    Manual,
+    
+    /// Automatically pull from remote at regular intervals
+    AutoPull {
+        #[serde(rename = "intervalSeconds")]
+        interval_seconds: u64,
+    },
+    
+    /// Push to remote immediately when vault data changes
+    PushOnChange,
+    
+    /// Full bidirectional sync at regular intervals
+    Full {
+        #[serde(rename = "intervalSeconds")]
+        interval_seconds: u64,
+    },
+}
+
+impl SyncMode {
+    pub fn is_auto_pull(&self) -> bool {
+        matches!(self, SyncMode::AutoPull { .. } | SyncMode::Full { .. })
+    }
+    
+    pub fn is_push_on_change(&self) -> bool {
+        matches!(self, SyncMode::PushOnChange | SyncMode::Full { .. })
+    }
+    
+    pub fn interval_seconds(&self) -> Option<u64> {
+        match self {
+            SyncMode::AutoPull { interval_seconds } | SyncMode::Full { interval_seconds } => {
+                Some(*interval_seconds)
+            }
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
