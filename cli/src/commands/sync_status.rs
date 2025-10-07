@@ -15,7 +15,7 @@ pub async fn execute(vault_path: Option<PathBuf>) -> Result<()> {
             .context("Failed to initialize git sync")?;
         
         // Get remote URL
-        let remote_url = sync.get_remote_url()
+        let remote_url = sync.get_remote()
             .context("Failed to get remote URL")?;
         
         println!("{}", "Sync Status".bold());

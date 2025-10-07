@@ -14,7 +14,7 @@ pub async fn execute(vault_path: Option<PathBuf>, remote_url: String) -> Result<
             .context("Failed to initialize git sync")?;
         
         // Configure remote URL
-        sync.set_remote_url(&remote_url)
+        sync.set_remote(&remote_url)
             .context("Failed to set remote URL")?;
         
         println!("✓ Git remote configured: {}", remote_url);

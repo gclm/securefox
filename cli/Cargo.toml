@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core library
-club-gclmit-securefox-core.workspace = true
+club-gclmit-securefox-core = { workspace = true, features = ["git", "keychain"] }
 club-gclmit-securefox-api = { path = "../api", optional = true }
 
 # CLI framework
