@@ -25,11 +25,10 @@ pub use state::AppState;
 pub fn create_app(vault_path: PathBuf, unlock_timeout: Duration) -> Router {
     let state = AppState::new(vault_path, unlock_timeout);
 
-    // CORS configuration
+    // CORS configuration - allow all origins for development
     let cors = CorsLayer::new()
-        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
-        .allow_origin("chrome-extension://*".parse::<HeaderValue>().unwrap())
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_origin(Any)
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
         .allow_headers(Any);
 
     // Public auth routes (no authentication required)
