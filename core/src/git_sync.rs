@@ -112,11 +112,33 @@ impl GitSync {
 
     /// Push changes to remote
     pub fn push(&self) -> Result<()> {
+        // Ensure we have at least one commit
+        if self.repo.head().is_err() {
+            // No commits yet, create an initial commit
+            self.auto_commit("Initial commit")?;
+        }
+        
+        // Rename branch to configured name if needed
+        if let Ok(head) = self.repo.head() {
+            if let Some(branch_name) = head.shorthand() {
+                if branch_name != self.branch_name {
+                    // Rename current branch to configured name
+                    let mut branch = self.repo.find_branch(branch_name, git2::BranchType::Local)?;
+                    branch.rename(&self.branch_name, false)?;
+                }
+            }
+        }
+        
         let mut remote = self.repo.find_remote(&self.remote_name)?;
         
         let mut callbacks = RemoteCallbacks::new();
         callbacks.credentials(|_url, username, cred_type| {
             self.get_credentials(username, cred_type)
+        });
+        
+        // Accept unknown SSH host keys (for development)
+        callbacks.certificate_check(|_cert, _host| {
+            Ok(git2::CertificateCheckStatus::CertificateOk)
         });
 
         let mut push_options = PushOptions::new();
@@ -135,6 +157,11 @@ impl GitSync {
         let mut callbacks = RemoteCallbacks::new();
         callbacks.credentials(|_url, username, cred_type| {
             self.get_credentials(username, cred_type)
+        });
+        
+        // Accept unknown SSH host keys (for development)
+        callbacks.certificate_check(|_cert, _host| {
+            Ok(git2::CertificateCheckStatus::CertificateOk)
         });
 
         let mut fetch_options = FetchOptions::new();
@@ -270,17 +297,31 @@ impl GitSync {
             })?;
             
             let ssh_dir = home.join(".ssh");
-            let private_key = ssh_dir.join("id_rsa");
-            let public_key = ssh_dir.join("id_rsa.pub");
+            let username = username.unwrap_or("git");
             
-            if private_key.exists() {
-                return Cred::ssh_key(
-                    username.unwrap_or("git"),
-                    Some(&public_key),
-                    &private_key,
-                    None,
-                );
+            // Try different key types in order of preference
+            let key_types = [
+                ("id_ed25519", "id_ed25519.pub"),
+                ("id_rsa", "id_rsa.pub"),
+                ("id_ecdsa", "id_ecdsa.pub"),
+            ];
+            
+            for (private, public) in &key_types {
+                let private_key = ssh_dir.join(private);
+                let public_key = ssh_dir.join(public);
+                
+                if private_key.exists() {
+                    return Cred::ssh_key(
+                        username,
+                        Some(&public_key),
+                        &private_key,
+                        None,
+                    );
+                }
             }
+            
+            // If no specific key found, try SSH agent
+            return Cred::ssh_key_from_agent(username);
         }
 
         // Try username/password from environment
