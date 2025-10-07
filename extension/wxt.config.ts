@@ -1,8 +1,12 @@
 import { defineConfig } from 'wxt';
+import path from 'path';
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
+  alias: {
+    '@': path.resolve(__dirname, './'),
+  },
   manifest: {
     name: 'SecureFox',
     description: 'Local-first password manager with Git synchronization',
