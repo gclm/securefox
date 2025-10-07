@@ -166,9 +166,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
         {/* Footer */}
         <div className="px-4 py-8 text-center">
           <img 
-            src="/icon/128.png" 
+            src="/icon/securefox-icon.svg"
             alt="SecureFox" 
-            className="w-16 h-16 mx-auto mb-3 rounded-xl"
+            className="w-16 h-16 mx-auto mb-3"
           />
           <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-1">SecureFox</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">

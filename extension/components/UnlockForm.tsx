@@ -45,8 +45,12 @@ export const UnlockForm: React.FC = () => {
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         {/* Logo and Brand */}
         <div className="mb-8">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-2xl">
-            <Lock className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 mx-auto mb-4">
+            <img 
+              src="/icon/securefox-icon.svg"
+              alt="SecureFox" 
+              className="w-full h-full drop-shadow-2xl"
+            />
           </div>
           <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100">SecureFox</h1>
           <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-2">

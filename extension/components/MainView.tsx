@@ -68,9 +68,11 @@ export const MainView: React.FC = () => {
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-            <Key className="w-4 h-4 text-white" />
-          </div>
+          <img 
+            src="/icon/securefox-icon.svg"
+            alt="SecureFox" 
+            className="w-8 h-8"
+          />
           <span className="font-semibold text-base text-gray-800 dark:text-gray-100">SecureFox</span>
         </div>
         

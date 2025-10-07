@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- 主色渐变 -->
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#60A5FA;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 深蓝色 -->
+    <linearGradient id="darkBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563EB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 白色背景 -->
+    <radialGradient id="bgWhite">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F3F4F6;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  
+  <!-- 背景 -->
+  <rect width="512" height="512" rx="80" fill="url(#bgWhite)"/>
+  
+  <!-- 现代简洁狐狸设计 -->
+  <g transform="translate(256, 320) scale(1.2)">
+    
+    <!-- 主体轮廓 -->
+    <g id="modern-fox">
+      
+      <!-- 耳朵 -->
+      <path d="M -140 -160 L -100 -220 L -60 -180 Q -80 -140, -100 -130 C -110 -125, -130 -135, -140 -160 Z" 
+            fill="url(#mainGradient)"/>
+      <path d="M 140 -160 L 100 -220 L 60 -180 Q 80 -140, 100 -130 C 110 -125, 130 -135, 140 -160 Z" 
+            fill="url(#mainGradient)"/>
+      
+      <!-- 头部主体 -->
+      <ellipse cx="0" cy="-60" rx="150" ry="130" fill="url(#mainGradient)"/>
+      
+      <!-- 鼻子部分 -->
+      <path d="M -100 0 Q -50 60, 0 80 Q 50 60, 100 0 L 100 -40 L -100 -40 Z" 
+            fill="url(#darkBlue)"/>
+      
+      <!-- 眼睛遮罩 -->
+      <g id="eye-mask">
+        <path d="M -150 -60 Q -100 -80, -50 -70 Q 0 -60, 50 -70 Q 100 -80, 150 -60 L 150 -40 Q 100 -30, 50 -35 Q 0 -40, -50 -35 Q -100 -30, -150 -40 Z" 
+              fill="#1E293B"/>
+      </g>
+      
+      <!-- 眼睛 -->
+      <g id="eyes">
+        <!-- 左眼 -->
+        <circle cx="-50" cy="-60" r="15" fill="#FFFFFF"/>
+        <circle cx="-50" cy="-60" r="8" fill="#1E293B"/>
+        <circle cx="-48" cy="-62" r="3" fill="#FFFFFF"/>
+        
+        <!-- 右眼 -->
+        <circle cx="50" cy="-60" r="15" fill="#FFFFFF"/>
+        <circle cx="50" cy="-60" r="8" fill="#1E293B"/>
+        <circle cx="52" cy="-62" r="3" fill="#FFFFFF"/>
+      </g>
+      
+      <!-- 鼻子 -->
+      <path d="M -8 20 Q 0 12, 8 20 Q 0 28, -8 20 Z" fill="#1E293B"/>
+      
+      <!-- 嘴 -->
+      <path d="M 0 28 Q -20 40, -30 50 M 0 28 Q 20 40, 30 50" 
+            stroke="#1E293B" 
+            stroke-width="3" 
+            fill="none" 
+            stroke-linecap="round"/>
+    </g>
+    
+  </g>
+</svg>
