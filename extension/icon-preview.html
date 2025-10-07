@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureFox Icon Preview & Export</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f4f8;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        h1 {
+            color: #1e293b;
+            margin-bottom: 30px;
+        }
+        
+        .preview-container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+        
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .icon-preview {
+            text-align: center;
+        }
+        
+        .icon-preview img {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+        
+        .icon-preview p {
+            margin-top: 10px;
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .export-section {
+            text-align: center;
+        }
+        
+        .export-btn {
+            background: #4C7FE5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        
+        .export-btn:hover {
+            background: #3B6BC6;
+        }
+        
+        canvas {
+            display: none;
+        }
+        
+        .instructions {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            max-width: 600px;
+        }
+        
+        .instructions h3 {
+            color: #1e293b;
+            margin-top: 0;
+        }
+        
+        .instructions ol {
+            color: #475569;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <h1>🦊 SecureFox Icon Preview</h1>
+    
+    <div class="preview-container">
+        <div class="icon-grid">
+            <div class="icon-preview">
+                <img id="icon-512" width="128" height="128" alt="512x512">
+                <p>512x512 (Original)</p>
+            </div>
+            <div class="icon-preview">
+                <img id="icon-128" width="128" height="128" alt="128x128">
+                <p>128x128</p>
+            </div>
+            <div class="icon-preview">
+                <img id="icon-96" width="96" height="96" alt="96x96">
+                <p>96x96</p>
+            </div>
+            <div class="icon-preview">
+                <img id="icon-48" width="48" height="48" alt="48x48">
+                <p>48x48</p>
+            </div>
+            <div class="icon-preview">
+                <img id="icon-32" width="32" height="32" alt="32x32">
+                <p>32x32</p>
+            </div>
+            <div class="icon-preview">
+                <img id="icon-16" width="16" height="16" alt="16x16">
+                <p>16x16</p>
+            </div>
+        </div>
+        
+        <div class="export-section">
+            <h2>Export PNG Icons</h2>
+            <button class="export-btn" onclick="exportIcon(16)">Export 16x16</button>
+            <button class="export-btn" onclick="exportIcon(32)">Export 32x32</button>
+            <button class="export-btn" onclick="exportIcon(48)">Export 48x48</button>
+            <button class="export-btn" onclick="exportIcon(96)">Export 96x96</button>
+            <button class="export-btn" onclick="exportIcon(128)">Export 128x128</button>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h3>📋 Manual Export Instructions</h3>
+        <ol>
+            <li>Click each "Export" button above to download the PNG files</li>
+            <li>Save them to: <code>/public/icon/</code> folder</li>
+            <li>Name them as: <code>16.png</code>, <code>32.png</code>, <code>48.png</code>, <code>96.png</code>, <code>128.png</code></li>
+            <li>The SVG file is already saved as <code>securefox-icon.svg</code></li>
+        </ol>
+    </div>
+    
+    <canvas id="canvas"></canvas>
+    
+    <script>
+        // Load SVG
+        fetch('public/icon/securefox-icon.svg')
+            .then(response => response.text())
+            .then(svgText => {
+                const blob = new Blob([svgText], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                
+                // Set all preview images
+                document.querySelectorAll('.icon-preview img').forEach(img => {
+                    img.src = url;
+                });
+            })
+            .catch(err => {
+                console.error('Error loading SVG:', err);
+                // Fallback: directly embed the SVG
+                const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- 主色渐变 - 从橙到蓝 -->
+    <linearGradient id="flameGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFA500;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#FF7043;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#5B8DEF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4C7FE5;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 纯蓝色渐变 -->
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#6B9EFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4C7FE5;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 橙色渐变 -->
+    <linearGradient id="orangeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFB443;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF7043;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 背景渐变 -->
+    <radialGradient id="bgGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F0F4F8;stop-opacity:1" />
+    </radialGradient>
+    
+    <!-- 阴影效果 -->
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feFlood flood-color="#000000" flood-opacity="0.1"/>
+      <feComposite in2="offsetblur" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- 背景圆角矩形 -->
+  <rect x="56" y="56" width="400" height="400" rx="72" ry="72" fill="url(#bgGradient)"/>
+  
+  <!-- 狐狸火焰造型 -->
+  <g transform="translate(256, 256)">
+    
+    <!-- 火焰式耳朵和头部轮廓 -->
+    <g id="flame-fox">
+      
+      <!-- 左耳火焰 -->
+      <path d="M -110 -80 C -115 -120, -105 -150, -85 -165 C -75 -175, -55 -170, -45 -160 C -40 -150, -35 -135, -40 -120 C -45 -105, -55 -95, -70 -90 C -85 -85, -100 -80, -110 -80 Z" 
+            fill="url(#orangeGradient)" 
+            filter="url(#softShadow)"/>
+      
+      <!-- 右耳火焰 -->
+      <path d="M 110 -80 C 115 -120, 105 -150, 85 -165 C 75 -175, 55 -170, 45 -160 C 40 -150, 35 -135, 40 -120 C 45 -105, 55 -95, 70 -90 C 85 -85, 100 -80, 110 -80 Z" 
+            fill="url(#orangeGradient)" 
+            filter="url(#softShadow)"/>
+      
+      <!-- 中间耳朵火焰 -->
+      <path d="M -40 -100 C -42 -125, -35 -145, -25 -155 C -15 -165, -5 -165, 0 -160 C 5 -165, 15 -165, 25 -155 C 35 -145, 42 -125, 40 -100 C 35 -85, 20 -75, 0 -70 C -20 -75, -35 -85, -40 -100 Z" 
+            fill="url(#flameGradient)" 
+            filter="url(#softShadow)"/>
+      
+      <!-- 头部主体 -->
+      <path d="M -90 -60 C -95 -75, -95 -90, -85 -100 C -75 -110, -60 -115, -40 -110 L 40 -110 C 60 -115, 75 -110, 85 -100 C 95 -90, 95 -75, 90 -60 L 85 10 C 80 50, 60 80, 40 95 C 20 110, -20 110, -40 95 C -60 80, -80 50, -85 10 Z" 
+            fill="url(#blueGradient)" 
+            filter="url(#softShadow)"/>
+      
+      <!-- 面颊火焰纹理 -->
+      <path d="M -85 -30 C -88 -40, -85 -50, -80 -55 C -75 -60, -70 -58, -68 -52 C -66 -46, -68 -38, -72 -33 C -76 -28, -82 -25, -85 -30 Z" 
+            fill="url(#orangeGradient)" 
+            opacity="0.6"/>
+      <path d="M 85 -30 C 88 -40, 85 -50, 80 -55 C 75 -60, 70 -58, 68 -52 C 66 -46, 68 -38, 72 -33 C 76 -28, 82 -25, 85 -30 Z" 
+            fill="url(#orangeGradient)" 
+            opacity="0.6"/>
+    </g>
+    
+    <!-- 面部特征 -->
+    <g id="face-features">
+      
+      <!-- 左眼 -->
+      <g transform="translate(-32, -20)">
+        <!-- 眼白 -->
+        <ellipse cx="0" cy="0" rx="20" ry="18" fill="#ffffff"/>
+        <!-- 眼球 -->
+        <circle cx="0" cy="0" r="10" fill="#1E293B"/>
+        <!-- 瞳孔（钥匙形） -->
+        <circle cx="0" cy="-2" r="5" fill="#4C7FE5"/>
+        <rect x="-1.5" y="-1" width="3" height="6" rx="1" fill="#4C7FE5"/>
+        <!-- 高光 -->
+        <circle cx="2" cy="-3" r="2" fill="#ffffff"/>
+      </g>
+      
+      <!-- 右眼 -->
+      <g transform="translate(32, -20)">
+        <!-- 眼白 -->
+        <ellipse cx="0" cy="0" rx="20" ry="18" fill="#ffffff"/>
+        <!-- 眼球 -->
+        <circle cx="0" cy="0" r="10" fill="#1E293B"/>
+        <!-- 瞳孔（钥匙形） -->
+        <circle cx="0" cy="-2" r="5" fill="#4C7FE5"/>
+        <rect x="-1.5" y="-1" width="3" height="6" rx="1" fill="#4C7FE5"/>
+        <!-- 高光 -->
+        <circle cx="2" cy="-3" r="2" fill="#ffffff"/>
+      </g>
+      
+      <!-- 鼻子 -->
+      <path d="M -5 20 C -5 18, -3 16, 0 16 C 3 16, 5 18, 5 20 C 5 23, 3 25, 0 25 C -3 25, -5 23, -5 20 Z" 
+            fill="#1E293B"/>
+      
+      <!-- 嘴巴 -->
+      <path d="M 0 25 C -8 30, -12 35, -12 40 M 0 25 C 8 30, 12 35, 12 40" 
+            stroke="#1E293B" 
+            stroke-width="2.5" 
+            fill="none" 
+            stroke-linecap="round"/>
+      
+      <!-- 安全锁标志（胸前） -->
+      <g transform="translate(0, 55)" opacity="0.8">
+        <rect x="-10" y="-6" width="20" height="16" rx="3" fill="#ffffff" opacity="0.5"/>
+        <path d="M -6 -6 L -6 -10 Q 0 -14 6 -10 L 6 -6" 
+              stroke="#4C7FE5" 
+              stroke-width="2.5" 
+              fill="none" 
+              stroke-linecap="round"/>
+        <circle cx="0" cy="2" r="2" fill="#4C7FE5"/>
+      </g>
+    </g>
+    
+    <!-- 装饰性火焰元素 -->
+    <g id="decorative-flames" opacity="0.3">
+      <path d="M -120 20 C -122 10, -120 0, -115 -5 C -110 -10, -105 -8, -103 -2 C -101 4, -103 12, -107 17 C -111 22, -118 25, -120 20 Z" 
+            fill="url(#orangeGradient)"/>
+      <path d="M 120 20 C 122 10, 120 0, 115 -5 C 110 -10, 105 -8, 103 -2 C 101 4, 103 12, 107 17 C 111 22, 118 25, 120 20 Z" 
+            fill="url(#orangeGradient)"/>
+    </g>
+    
+  </g>
+</svg>`;
+                const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                document.querySelectorAll('.icon-preview img').forEach(img => {
+                    img.src = url;
+                });
+            });
+        
+        function exportIcon(size) {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = size;
+            canvas.height = size;
+            
+            const img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, size, size);
+                ctx.drawImage(img, 0, 0, size, size);
+                
+                canvas.toBlob(function(blob) {
+                    const link = document.createElement('a');
+                    link.download = `${size}.png`;
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                }, 'image/png');
+            };
+            
+            img.src = document.getElementById('icon-512').src;
+        }
+    </script>
+</body>
+</html>
