@@ -202,9 +202,14 @@ pub mod totp {
             .find(|i| i.id == id)
             .ok_or(ApiError::NotFound)?;
         
+        tracing::info!("Found item for TOTP: name={}, id={}", item.name, item.id);
+        tracing::info!("Item login data: {:?}", item.login);
+        
         let totp_secret = item.login
             .and_then(|l| l.totp)
             .ok_or(ApiError::BadRequest("Item has no TOTP".to_string()))?;
+        
+        tracing::info!("TOTP secret from item: {}", totp_secret);
         
         // Parse and validate TOTP secret (handles formatting, whitespace, etc.)
         use club_gclmit_securefox_core::totp::{parse_totp_secret, TotpConfig};

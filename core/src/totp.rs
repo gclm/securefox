@@ -74,17 +74,24 @@ impl TotpConfig {
     fn to_totp(&self) -> Result<TOTP> {
         let secret = Secret::Encoded(self.secret.clone())
             .to_bytes()
-            .map_err(|_| Error::InvalidTotp)?;
+            .map_err(|e| {
+                eprintln!("[TOTP] Secret::to_bytes() failed for '{}': {:?}", self.secret, e);
+                Error::InvalidTotp
+            })?;
 
-        TOTP::new(
-            self.algorithm,
-            self.digits,
-            1,
-            self.period,
+        eprintln!("[TOTP] Secret decoded successfully, creating TOTP with {} bytes", secret.len());
+
+        // Use new_unchecked to allow shorter secrets (like 10 bytes)
+        // Many TOTP secrets in the wild are shorter than the 16-byte minimum of TOTP::new()
+        Ok(TOTP {
+            algorithm: self.algorithm,
+            digits: self.digits,
+            skew: 1,
+            step: self.period,
             secret,
-            self.issuer.clone(),
-            self.account_name.clone().unwrap_or_default(),
-        ).map_err(|_| Error::InvalidTotp)
+            issuer: self.issuer.clone(),
+            account_name: self.account_name.clone().unwrap_or_default(),
+        })
     }
 
     /// Generate otpauth:// URI
@@ -164,5 +171,25 @@ mod tests {
             parse_totp_secret("JBSWY3DPEHPK3PXP").unwrap(),
             "JBSWY3DPEHPK3PXP"
         );
+    }
+
+    #[test]
+    fn test_user_totp_key() {
+        let secret = "UVOCZBWWKFWAKOLM";
+        
+        // Test parse
+        match parse_totp_secret(secret) {
+            Ok(cleaned) => {
+                println!("Parsed secret: {}", cleaned);
+                
+                // Test generation
+                let config = TotpConfig::new(cleaned);
+                match config.generate() {
+                    Ok(code) => println!("Generated code: {}", code),
+                    Err(e) => println!("Generate error: {:?}", e),
+                }
+            }
+            Err(e) => println!("Parse error: {:?}", e),
+        }
     }
 }

@@ -66,6 +66,7 @@ impl From<club_gclmit_securefox_core::Error> for ApiError {
             Error::InvalidPassword => ApiError::InvalidPassword,
             Error::VaultNotFound => ApiError::NotFound,
             Error::ItemNotFound(_) => ApiError::NotFound,
+            Error::InvalidTotp => ApiError::BadRequest("Invalid TOTP secret".to_string()),
             _ => ApiError::Internal(err.to_string()),
         }
     }
