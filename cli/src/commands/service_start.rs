@@ -50,7 +50,7 @@ async fn start_api_server(
 ) -> Result<()> {
     #[cfg(feature = "serve")]
     {
-        club_gclmit_securefox_api::run(
+        securefox_api::run(
             vault_path,
             host,
             port,

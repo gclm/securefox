@@ -74,8 +74,8 @@ pub mod generate {
 // import.rs
 pub mod import {
     use super::*;
-    use club_gclmit_securefox_core::importers::bitwarden::BitwardenImporter;
-    use club_gclmit_securefox_core::importers::Importer;
+    use securefox_core::importers::bitwarden::BitwardenImporter;
+    use securefox_core::importers::Importer;
     
     pub async fn execute(vault_path: Option<PathBuf>, file: PathBuf, format: String) -> Result<()> {
         let data = std::fs::read_to_string(file)?;
@@ -141,7 +141,7 @@ pub mod sync {
     pub async fn execute(vault_path: Option<PathBuf>, pull: bool, push: bool) -> Result<()> {
         #[cfg(feature = "git")]
         {
-            use club_gclmit_securefox_core::git_sync::GitSync;
+            use securefox_core::git_sync::GitSync;
             
             let vault_path = vault_path.ok_or_else(|| anyhow::anyhow!("Vault path not specified"))?;
             let sync = GitSync::init(&vault_path)?;
@@ -164,7 +164,7 @@ pub mod sync {
 // totp.rs
 pub mod totp {
     use super::*;
-    use club_gclmit_securefox_core::totp::TotpConfig;
+    use securefox_core::totp::TotpConfig;
     use clipboard::{ClipboardContext, ClipboardProvider};
     
     pub async fn execute(vault_path: Option<PathBuf>, item: String, copy: bool) -> Result<()> {

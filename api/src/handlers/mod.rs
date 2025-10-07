@@ -35,7 +35,7 @@ pub mod auth_impl {
     }
 
     pub async fn status(State(state): State<AppState>) -> Result<Json<StatusResponse>> {
-        let storage = club_gclmit_securefox_core::storage::VaultStorage::with_path(
+        let storage = securefox_core::storage::VaultStorage::with_path(
             state.vault_path.join("vault.sf")
         );
         
@@ -50,7 +50,7 @@ pub mod auth_impl {
 // Simplified placeholder handlers for other modules
 pub mod items_impl {
     use axum::{extract::{Path, Query, State}, Json};
-    use club_gclmit_securefox_core::models::Item;
+    use securefox_core::models::Item;
     use crate::{models::ListItemsQuery, ApiError, AppState, Result};
 
     pub async fn list_items(
@@ -212,7 +212,7 @@ pub mod totp {
         tracing::info!("TOTP secret from item: {}", totp_secret);
         
         // Parse and validate TOTP secret (handles formatting, whitespace, etc.)
-        use club_gclmit_securefox_core::totp::{parse_totp_secret, TotpConfig};
+        use securefox_core::totp::{parse_totp_secret, TotpConfig};
         let cleaned_secret = parse_totp_secret(&totp_secret)
             .map_err(|e| ApiError::BadRequest(format!("Invalid TOTP secret: {}", e)))?;
         

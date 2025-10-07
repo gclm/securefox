@@ -1,13 +1,13 @@
 use anyhow::Result;
-use club_gclmit_securefox_core::models::{SyncConfig, SyncMode};
-use club_gclmit_securefox_core::VaultStorage;
+use securefox_core::models::{SyncConfig, SyncMode};
+use securefox_core::VaultStorage;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{interval, Duration};
 
 #[cfg(feature = "git")]
-use club_gclmit_securefox_core::git_sync::GitSync;
+use securefox_core::git_sync::GitSync;
 
 /// Sync daemon for automatic vault synchronization
 pub struct SyncDaemon {

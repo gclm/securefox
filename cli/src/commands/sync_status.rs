@@ -3,7 +3,7 @@ use colored::Colorize;
 use std::path::PathBuf;
 
 #[cfg(feature = "git")]
-use club_gclmit_securefox_core::git_sync::GitSync;
+use securefox_core::git_sync::GitSync;
 
 pub async fn execute(vault_path: Option<PathBuf>) -> Result<()> {
     #[cfg(feature = "git")]

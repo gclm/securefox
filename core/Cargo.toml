@@ -1,5 +1,5 @@
 [package]
-name = "club-gclmit-securefox-core"
+name = "securefox-core"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

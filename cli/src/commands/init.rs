@@ -1,7 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Password};
-use club_gclmit_securefox_core::{prelude::*, storage::VaultStorage, crypto::KdfParams};
+use securefox_core::{prelude::*, storage::VaultStorage, crypto::KdfParams};
 use std::path::PathBuf;
 
 pub async fn execute(vault_path: Option<PathBuf>, remote: Option<String>, kdf: String) -> Result<()> {
@@ -54,7 +54,7 @@ pub async fn execute(vault_path: Option<PathBuf>, remote: Option<String>, kdf: S
     if let Some(remote_url) = remote {
         #[cfg(feature = "git")]
         {
-            use club_gclmit_securefox_core::git_sync::GitSync;
+            use securefox_core::git_sync::GitSync;
             
             println!("{}", "Setting up Git sync...".cyan());
             let sync = GitSync::init(&vault_path)?;

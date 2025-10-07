@@ -1,7 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Cell, Color, Table};
-use club_gclmit_securefox_core::models::ItemType;
+use securefox_core::models::ItemType;
 use std::path::PathBuf;
 
 pub async fn execute(

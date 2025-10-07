@@ -1,5 +1,5 @@
 [package]
-name = "club-gclmit-securefox"
+name = "securefox-cli"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,8 +11,8 @@ path = "src/main.rs"
 
 [dependencies]
 # Core library
-club-gclmit-securefox-core = { workspace = true }
-club-gclmit-securefox-api = { path = "../api", optional = true }
+securefox-core = { workspace = true }
+securefox-api = { path = "../api", optional = true }
 
 # CLI framework
 clap = { version = "4.4", features = ["derive", "env"] }
@@ -61,9 +61,9 @@ cocoa = "0.25"
 
 [features]
 default = ["serve", "git", "keychain"]
-serve = ["dep:club-gclmit-securefox-api"]
-git = ["club-gclmit-securefox-core/git"]
-keychain = ["club-gclmit-securefox-core/keychain"]
+serve = ["dep:securefox-api"]
+git = ["securefox-core/git"]
+keychain = ["securefox-core/keychain"]
 
 [build-dependencies]
 chrono = "0.4"

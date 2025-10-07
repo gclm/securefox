@@ -1,5 +1,5 @@
 use dialoguer::Password;
-use club_gclmit_securefox_core::storage::VaultStorage;
+use securefox_core::storage::VaultStorage;
 use std::path::Path;
 
 /// Get password from user or keychain
@@ -7,7 +7,7 @@ pub fn get_password(prompt: &str) -> anyhow::Result<String> {
     // Try keychain first
     #[cfg(feature = "keychain")]
     {
-        use club_gclmit_securefox_core::keychain::Keychain;
+        use securefox_core::keychain::Keychain;
         let keychain = Keychain::new();
         if keychain.has_master_key() {
             if let Ok(key) = keychain.get_master_key() {
@@ -23,7 +23,7 @@ pub fn get_password(prompt: &str) -> anyhow::Result<String> {
 }
 
 /// Load vault with password prompt
-pub fn load_vault(path: &Path) -> anyhow::Result<(club_gclmit_securefox_core::models::Vault, String)> {
+pub fn load_vault(path: &Path) -> anyhow::Result<(securefox_core::models::Vault, String)> {
     let storage = VaultStorage::with_path(path);
     
     if !storage.exists() {

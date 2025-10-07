@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use club_gclmit_securefox_core::VaultStorage;
-use club_gclmit_securefox_core::models::SyncConfig;
+use securefox_core::VaultStorage;
+use securefox_core::models::SyncConfig;
 use std::path::PathBuf;
 use dialoguer::Password;
 
