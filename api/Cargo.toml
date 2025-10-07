@@ -1,0 +1,46 @@
+[package]
+name = "securefox-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Core library
+securefox-core.workspace = true
+
+# Web framework
+axum = { version = "0.7", features = ["ws"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+hyper = { version = "1.0", features = ["full"] }
+
+# Async runtime
+tokio.workspace = true
+
+# Authentication
+jsonwebtoken = "9.0"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# State management
+parking_lot = "0.12"
+
+# Password generation
+passwords = "3.1"
+
+[dev-dependencies]
+tokio-test = "0.4"

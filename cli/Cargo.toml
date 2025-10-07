@@ -1,0 +1,58 @@
+[package]
+name = "securefox-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "securefox"
+path = "src/main.rs"
+
+[dependencies]
+# Core library
+securefox-core.workspace = true
+securefox-api = { path = "../api", optional = true }
+
+# CLI framework
+clap = { version = "4.4", features = ["derive", "env"] }
+clap_complete = "4.4"
+
+# Async runtime
+tokio.workspace = true
+
+# Terminal UI
+dialoguer = "0.11"
+indicatif = "0.17"
+console = "0.15"
+colored = "2.1"
+
+# Table formatting
+comfy-table = "7.1"
+
+# Error handling
+anyhow.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Clipboard
+clipboard = "0.5"
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Password generation
+passwords = "3.1"
+
+# File handling
+dirs = "5.0"
+
+[features]
+default = ["serve"]
+serve = ["dep:securefox-api"]
+
+[dev-dependencies]
+tempfile = "3.8"

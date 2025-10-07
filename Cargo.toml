@@ -1,0 +1,22 @@
+[workspace]
+members = ["core", "cli", "api", "tray"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["SecureFox Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/securefox"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Shared internal crates
+securefox-core = { path = "core" }
