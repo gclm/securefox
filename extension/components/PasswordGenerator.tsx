@@ -30,10 +30,10 @@ export const PasswordGenerator: React.FC = () => {
     try {
       const response = await apiGeneratePassword({
         length: options.length,
-        uppercase: options.useUppercase,
-        lowercase: options.useLowercase,
-        numbers: options.useNumbers,
-        symbols: options.useSymbols,
+        include_uppercase: options.useUppercase,
+        include_lowercase: options.useLowercase,
+        include_numbers: options.useNumbers,
+        include_symbols: options.useSymbols,
       });
       setPassword(response.password);
       setCopied(false);

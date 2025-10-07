@@ -31,6 +31,8 @@ pub struct StatusResponse {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GeneratePasswordRequest {
     pub length: Option<usize>,
+    pub include_uppercase: Option<bool>,
+    pub include_lowercase: Option<bool>,
     pub include_numbers: Option<bool>,
     pub include_symbols: Option<bool>,
     pub exclude_similar: Option<bool>,

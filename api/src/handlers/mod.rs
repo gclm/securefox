@@ -119,10 +119,10 @@ pub mod generate_impl {
         Json(req): Json<GeneratePasswordRequest>,
     ) -> Result<Json<GeneratePasswordResponse>> {
         let pg = PasswordGenerator {
-            length: req.length.unwrap_or(20),
+            length: req.length.unwrap_or(16),
             numbers: req.include_numbers.unwrap_or(true),
-            lowercase_letters: true,
-            uppercase_letters: true,
+            lowercase_letters: req.include_lowercase.unwrap_or(true),
+            uppercase_letters: req.include_uppercase.unwrap_or(true),
             symbols: req.include_symbols.unwrap_or(true),
             spaces: false,
             exclude_similar_characters: req.exclude_similar.unwrap_or(true),

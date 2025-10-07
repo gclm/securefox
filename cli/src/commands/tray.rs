@@ -22,11 +22,6 @@ struct AppState {
 pub async fn execute() -> Result<()> {
     println!("Starting SecureFox system tray...");
     
-    // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
-        .init();
-
     // Create event loop
     let event_loop = EventLoopBuilder::new().build();
     

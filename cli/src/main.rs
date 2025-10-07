@@ -144,7 +144,7 @@ enum Commands {
     /// Generate a password
     Generate {
         /// Password length
-        #[arg(short, long, default_value = "20")]
+        #[arg(short, long, default_value = "16")]
         length: usize,
 
         /// Include numbers
@@ -152,7 +152,7 @@ enum Commands {
         numbers: bool,
 
         /// Include symbols
-        #[arg(short = 's', long, default_value = "true")]
+        #[arg(short = 's', long, default_value = "false")]
         symbols: bool,
 
         /// Copy to clipboard

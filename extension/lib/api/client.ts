@@ -22,6 +22,9 @@ apiClient.interceptors.request.use(
         
         if (session?.token) {
           config.headers.Authorization = `Bearer ${session.token}`;
+          console.log('[API] Added auth token to request:', config.url);
+        } else {
+          console.warn('[API] No session token found for request:', config.url);
         }
       }
     } catch (error) {
@@ -78,7 +81,14 @@ export async function apiCall<T>(
   config?: any
 ): Promise<T> {
   try {
-    const response = await apiClient[method](url, data, config);
+    let response;
+    if (method === 'get' || method === 'delete') {
+      // GET and DELETE don't have a data parameter
+      response = await apiClient[method](url, config);
+    } else {
+      // POST and PUT have data parameter
+      response = await apiClient[method](url, data, config);
+    }
     return response.data;
   } catch (error: any) {
     throw error;

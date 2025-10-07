@@ -100,10 +100,10 @@ export async function getTOTP(entryId: string): Promise<TOTPResponse> {
  */
 export async function generatePassword(options?: {
   length?: number;
-  uppercase?: boolean;
-  lowercase?: boolean;
-  numbers?: boolean;
-  symbols?: boolean;
+  include_uppercase?: boolean;
+  include_lowercase?: boolean;
+  include_numbers?: boolean;
+  include_symbols?: boolean;
 }): Promise<{ password: string }> {
   return apiCall<{ password: string }>('post', API_ENDPOINTS.GENERATE, options || {});
 }
