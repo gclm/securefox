@@ -64,6 +64,7 @@ default = ["serve", "git", "keychain"]
 serve = ["dep:securefox-api"]
 git = ["securefox-core/git"]
 keychain = ["securefox-core/keychain"]
+vendored-ssl = ["securefox-core/vendored-ssl"]
 
 [build-dependencies]
 chrono = "0.4"

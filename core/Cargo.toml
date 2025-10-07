@@ -34,7 +34,7 @@ thiserror.workspace = true
 uuid = { version = "1.6", features = ["v4", "serde"] }
 
 # Git (optional)
-git2 = { version = "0.18", optional = true }
+git2 = { version = "0.18", optional = true, default-features = false, features = ["https"] }
 
 # System keychain
 keyring = { version = "2.0", optional = true }
@@ -49,6 +49,7 @@ dirs = "5.0"
 default = ["git", "keychain"]
 git = ["dep:git2"]
 keychain = ["dep:keyring"]
+vendored-ssl = ["git2?/vendored-openssl", "git2?/vendored-libgit2"]
 
 [dev-dependencies]
 tempfile = "3.8"
