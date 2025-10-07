@@ -144,7 +144,7 @@ export const MainView: React.FC = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             type="text"
-            placeholder="搜索密码库..."
+            placeholder={activeView === 'cards' ? '搜索信用卡...' : activeView === 'notes' ? '搜索笔记...' : '搜索密码库...'}
             value={localSearchQuery}
             onChange={(e) => setLocalSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

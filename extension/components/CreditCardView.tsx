@@ -5,51 +5,50 @@ import { ItemType } from '@/types';
 
 export const CreditCardView: React.FC = () => {
   const { showNotification } = useUIStore();
-  const { items } = useVaultStore();
+  const { items, searchQuery } = useVaultStore();
   const [showAddForm, setShowAddForm] = useState(false);
   
   // 从 vault store 过滤出信用卡类型的项目
   const cards = useMemo(() => {
-    return items
-      .filter(item => item.type === ItemType.Card && item.card)
-      .map((item, index) => ({
-        id: item.id,
-        name: item.name,
-        type: item.card?.brand || 'Card',
-        lastFour: item.card?.number?.slice(-4) || '****',
-        expiry: item.card?.expMonth && item.card?.expYear 
-          ? `${item.card.expMonth}/${item.card.expYear}` 
-          : 'N/A',
-        cardholderName: item.card?.cardholderName || 'N/A',
-        // 根据品牌选择不同的颜色
-        color: item.card?.brand?.toLowerCase() === 'visa' 
-          ? 'bg-gradient-to-br from-blue-500 to-blue-700'
-          : item.card?.brand?.toLowerCase() === 'mastercard'
-          ? 'bg-gradient-to-br from-purple-500 to-purple-700'
-          : 'bg-gradient-to-br from-gray-500 to-gray-700',
-        notes: item.notes
-      }));
-  }, [items]);
+    let filtered = items.filter(item => item.type === ItemType.Card && item.card);
+    
+    // 如果有搜索查询，进一步过滤
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(item => {
+        const name = item.name?.toLowerCase() || '';
+        const cardholderName = item.card?.cardholderName?.toLowerCase() || '';
+        const brand = item.card?.brand?.toLowerCase() || '';
+        const lastFour = item.card?.number?.slice(-4) || '';
+        
+        return name.includes(query) || 
+               cardholderName.includes(query) || 
+               brand.includes(query) ||
+               lastFour.includes(query);
+      });
+    }
+    
+    return filtered.map((item, index) => ({
+      id: item.id,
+      name: item.name,
+      type: item.card?.brand || 'Card',
+      lastFour: item.card?.number?.slice(-4) || '****',
+      expiry: item.card?.expMonth && item.card?.expYear 
+        ? `${item.card.expMonth}/${item.card.expYear}` 
+        : 'N/A',
+      cardholderName: item.card?.cardholderName || 'N/A',
+      // 根据品牌选择不同的颜色
+      color: item.card?.brand?.toLowerCase() === 'visa' 
+        ? 'bg-gradient-to-br from-blue-500 to-blue-700'
+        : item.card?.brand?.toLowerCase() === 'mastercard'
+        ? 'bg-gradient-to-br from-purple-500 to-purple-700'
+        : 'bg-gradient-to-br from-gray-500 to-gray-700',
+      notes: item.notes
+    }));
+  }, [items, searchQuery]);
 
   return (
     <div className="p-4 space-y-4">
-      {/* 添加按钮 */}
-      <button 
-        onClick={() => {
-          showNotification({
-            type: 'info',
-            title: '功能开发中',
-            message: '添加信用卡功能即将推出'
-          });
-        }}
-        className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
-      >
-        <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-          <Plus className="w-5 h-5" />
-          <span className="font-medium">添加信用卡</span>
-        </div>
-      </button>
-
       {/* 卡片列表 */}
       {cards.map(card => (
         <div key={card.id} className="relative">
@@ -85,7 +84,7 @@ export const CreditCardView: React.FC = () => {
         <div className="text-center py-12">
           <CreditCard className="w-12 h-12 mx-auto text-gray-400 mb-3" />
           <p className="text-gray-600 dark:text-gray-400">暂无信用卡</p>
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">点击上方按钮添加您的第一张卡片</p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">点击右上角按钮添加您的第一张卡片</p>
         </div>
       )}
     </div>

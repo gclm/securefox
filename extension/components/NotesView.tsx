@@ -13,29 +13,34 @@ interface Note {
 }
 
 export const NotesView: React.FC = () => {
-  const { items, deleteItem } = useVaultStore();
+  const { items, deleteItem, searchQuery } = useVaultStore();
   const { showNotification } = useUIStore();
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   
   // 从 vault store 过滤出笔记类型的项目
-  const notes = useMemo(() => {
-    return items
-      .filter(item => item.type === ItemType.SecureNote)
-      .map(item => ({
-        id: item.id,
-        title: item.name,
-        content: item.notes || '',
-        createdAt: item.creationDate,
-        updatedAt: item.revisionDate,
-        tags: [] // 可以从 fields 或其他地方提取标签
-      }));
-  }, [items]);
-  
-  const filteredNotes = notes.filter(note => 
-    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredNotes = useMemo(() => {
+    let filtered = items.filter(item => item.type === ItemType.SecureNote);
+    
+    // 如果有搜索查询，进一步过滤
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(item => {
+        const name = item.name?.toLowerCase() || '';
+        const content = item.notes?.toLowerCase() || '';
+        
+        return name.includes(query) || content.includes(query);
+      });
+    }
+    
+    return filtered.map(item => ({
+      id: item.id,
+      title: item.name,
+      content: item.notes || '',
+      createdAt: item.creationDate,
+      updatedAt: item.revisionDate,
+      tags: [] // 可以从 fields 或其他地方提取标签
+    }));
+  }, [items, searchQuery]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -52,38 +57,18 @@ export const NotesView: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      {/* Search Bar */}
-      <div className="p-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="搜索笔记..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-      </div>
-
-      {/* Notes List */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {filteredNotes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
+    <div className="p-4 space-y-3 bg-gray-50 dark:bg-gray-900">
+      {filteredNotes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
               <FileText className="w-10 h-10 text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
               还没有笔记
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              创建您的第一个安全笔记
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              点击右上角按钮创建您的第一个安全笔记
             </p>
-            <button className="px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-colors">
-              <Plus className="w-4 h-4" />
-              新建笔记
-            </button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -151,15 +136,6 @@ export const NotesView: React.FC = () => {
             ))}
           </div>
         )}
-      </div>
-
-      {/* Add Note Button */}
-      <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-        <button className="w-full py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg flex items-center justify-center gap-2 hover:shadow-lg transition-all">
-          <Plus className="w-5 h-5" />
-          新建笔记
-        </button>
-      </div>
     </div>
   );
 };
