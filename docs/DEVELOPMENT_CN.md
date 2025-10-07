@@ -147,7 +147,7 @@ securefox version
 
 ## 服务安装
 
-`securefox service install` 命令将会：
+`securefox service enable` 命令将会：
 1. 自动复制二进制文件到 `/usr/local/bin`
 2. 创建 launchd plist 用于自动启动
 3. 无需单独运行 `make install`！
@@ -156,8 +156,8 @@ securefox version
 # 先构建
 make release
 
-# 然后作为服务安装（包含二进制文件安装）
-./target/release/securefox service install
+# 然后启用服务（包含二进制文件安装）
+./target/release/securefox service enable
 ```
 
 ## 目录结构

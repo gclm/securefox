@@ -307,11 +307,27 @@ enum ServiceCommands {
     /// Show service status
     Status,
 
-    /// Install as system service (launchd on macOS)
-    Install,
+    /// Enable system service (auto-start on boot)
+    Enable,
 
-    /// Uninstall system service
-    Uninstall,
+    /// Disable system service (remove auto-start)
+    Disable,
+    
+    /// Internal: Actually run the service (hidden command)
+    #[command(hide = true)]
+    _run {
+        /// Port to listen on
+        #[arg(short, long, default_value = "8787")]
+        port: u16,
+
+        /// Host to bind to
+        #[arg(short = 'H', long, default_value = "127.0.0.1")]
+        host: String,
+
+        /// Unlock timeout in seconds
+        #[arg(short = 't', long, default_value = "900")]
+        timeout: u64,
+    },
 }
 
 #[tokio::main]
@@ -435,11 +451,14 @@ async fn main() -> Result<()> {
             ServiceCommands::Status => {
                 commands::service_status::execute().await
             }
-            ServiceCommands::Install => {
-                commands::service_install::execute().await
+            ServiceCommands::Enable => {
+                commands::service_enable::execute().await
             }
-            ServiceCommands::Uninstall => {
-                commands::service_uninstall::execute().await
+            ServiceCommands::Disable => {
+                commands::service_disable::execute().await
+            }
+            ServiceCommands::_run { port, host, timeout } => {
+                commands::service_run::execute(vault_path, host, port, timeout).await
             }
         },
     };

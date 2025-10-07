@@ -26,5 +26,6 @@ pub mod service_start;
 pub mod service_stop;
 pub mod service_restart;
 pub mod service_status;
-pub mod service_install;
-pub mod service_uninstall;
+pub mod service_enable;
+pub mod service_disable;
+pub mod service_run;

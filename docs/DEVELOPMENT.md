@@ -147,7 +147,7 @@ securefox version
 
 ## Service Installation
 
-The `securefox service install` command will:
+The `securefox service enable` command will:
 1. Automatically copy the binary to `/usr/local/bin`
 2. Create launchd plist for auto-start
 3. No need to run `make install` separately!
@@ -156,8 +156,8 @@ The `securefox service install` command will:
 # Build first
 make release
 
-# Then install as service (includes binary installation)
-./target/release/securefox service install
+# Then enable as service (includes binary installation)
+./target/release/securefox service enable
 ```
 
 ## Directory Structure

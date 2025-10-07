@@ -376,14 +376,14 @@ securefox service status
 ### 系统服务安装（macOS）
 
 ```bash
-# 安装为 launchd 服务（自动启动）
-securefox service install
+# 启用为 launchd 服务（自动启动）
+securefox service enable
 
-# 卸载服务
-securefox service uninstall
+# 禁用服务
+securefox service disable
 ```
 
-服务安装后会：
+服务启用后会：
 1. 复制二进制文件到 `/usr/local/bin/securefox`
 2. 创建 launchd plist
 3. 开机自动启动
@@ -672,8 +672,8 @@ securefox service stop
 # 删除密码库和配置
 rm -rf ~/.securefox
 
-# 卸载服务（如果已安装）
-securefox service uninstall
+# 禁用服务（如果已启用）
+securefox service disable
 
 # 重新开始
 securefox vault init
@@ -753,8 +753,8 @@ securefox service start                 # 启动
 securefox service stop                  # 停止
 securefox service restart               # 重启
 securefox service status                # 状态
-securefox service install               # 安装系统服务
-securefox service uninstall             # 卸载
+securefox service enable                # 启用系统服务
+securefox service disable               # 禁用
 ```
 
 ### 工具

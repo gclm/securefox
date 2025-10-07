@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 
 pub async fn execute(
     vault_path: Option<PathBuf>,
@@ -25,43 +26,69 @@ pub async fn execute(
         }
     }
     
+    // Get current executable path
+    let exe_path = std::env::current_exe()
+        .context("Failed to get current executable path")?;
+    
+    // Prepare log files
+    let log_file = vault_path.join("service.log");
+    let err_file = vault_path.join("service.err");
+    
+    // Spawn background process
+    let child = Command::new(&exe_path)
+        .arg("--vault")
+        .arg(&vault_path)
+        .arg("service")
+        .arg("_run")
+        .arg("--host")
+        .arg(&host)
+        .arg("--port")
+        .arg(port.to_string())
+        .arg("--timeout")
+        .arg(timeout.to_string())
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(fs::File::create(&log_file)?))
+        .stderr(Stdio::from(fs::File::create(&err_file)?))
+        .spawn()
+        .context("Failed to spawn background service")?;
+    
+    let pid = child.id();
+    
     // Write PID file
-    let pid = std::process::id();
     fs::write(&pid_file, pid.to_string())
         .context("Failed to write PID file")?;
     
-    println!("✓ Starting SecureFox API service...");
+    // Give the service a moment to start and bind the port
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    
+    // Check if the process is still running
+    if !is_process_running(pid) {
+        // Clean up PID file
+        let _ = fs::remove_file(&pid_file);
+        anyhow::bail!(
+            "Service failed to start. Check logs at {} and {}",
+            log_file.display(),
+            err_file.display()
+        );
+    }
+    
+    // Check if port is actually bound
+    if !is_port_in_use(port) {
+        // Clean up PID file
+        let _ = fs::remove_file(&pid_file);
+        anyhow::bail!(
+            "Service started but failed to bind port {}. Check logs at {} and {}",
+            port,
+            log_file.display(),
+            err_file.display()
+        );
+    }
+    
+    println!("✓ Service started successfully");
     println!("  PID: {}", pid);
     println!("  API: http://{}:{}", host, port);
     println!("  Vault: {}", vault_path.display());
-    println!("");
-    
-    // Start API server only
-    start_api_server(vault_path, host, port, timeout).await?;
-    
-    Ok(())
-}
-
-async fn start_api_server(
-    vault_path: PathBuf,
-    host: String,
-    port: u16,
-    timeout: u64,
-) -> Result<()> {
-    #[cfg(feature = "serve")]
-    {
-        securefox_api::run(
-            vault_path,
-            host,
-            port,
-            timeout,
-        ).await?;
-    }
-    
-    #[cfg(not(feature = "serve"))]
-    {
-        anyhow::bail!("API server feature not enabled");
-    }
+    println!("  Logs: {}", log_file.display());
     
     Ok(())
 }
@@ -69,8 +96,8 @@ async fn start_api_server(
 fn is_process_running(pid: u32) -> bool {
     #[cfg(unix)]
     {
-        use std::process::Command;
-        Command::new("kill")
+        use std::process::Command as StdCommand;
+        StdCommand::new("kill")
             .arg("-0")
             .arg(pid.to_string())
             .output()
@@ -81,6 +108,25 @@ fn is_process_running(pid: u32) -> bool {
     #[cfg(not(unix))]
     {
         // For Windows, would need different implementation
+        false
+    }
+}
+
+fn is_port_in_use(port: u16) -> bool {
+    #[cfg(unix)]
+    {
+        use std::process::Command as StdCommand;
+        StdCommand::new("lsof")
+            .arg("-i")
+            .arg(format!(":{}", port))
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    }
+    
+    #[cfg(not(unix))]
+    {
+        // For Windows, use netstat
         false
     }
 }
