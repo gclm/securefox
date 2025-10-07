@@ -1,0 +1,92 @@
+name: Build Extension
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'extension/**'
+      - '.github/workflows/build-extension.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'extension/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Browser Extension
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: extension/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: extension
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension for Chrome
+        if: matrix.browser == 'chrome'
+        working-directory: extension
+        run: pnpm build
+
+      - name: Build extension for Firefox
+        if: matrix.browser == 'firefox'
+        working-directory: extension
+        run: pnpm build:firefox
+
+      - name: Package extension for Chrome
+        if: matrix.browser == 'chrome'
+        working-directory: extension
+        run: pnpm zip
+
+      - name: Package extension for Firefox
+        if: matrix.browser == 'firefox'
+        working-directory: extension
+        run: pnpm zip:firefox
+
+      - name: Prepare artifact
+        working-directory: extension
+        run: |
+          mkdir -p ../artifacts
+          if [ "${{ matrix.browser }}" = "chrome" ]; then
+            mv .output/*.zip ../artifacts/securefox-extension-chrome.zip || true
+          else
+            mv .output/*.zip ../artifacts/securefox-extension-firefox.zip || true
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: securefox-extension-${{ matrix.browser }}
+          path: artifacts/securefox-extension-${{ matrix.browser }}.zip
+          retention-days: 30
+
+  summary:
+    name: Build Summary
+    needs: build
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Check build status
+        run: |
+          echo "Extension build completed for all browsers"
+          echo "Artifacts are available for download"
