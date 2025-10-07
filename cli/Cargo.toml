@@ -1,5 +1,5 @@
 [package]
-name = "securefox-cli"
+name = "club-gclmit-securefox"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,8 +11,8 @@ path = "src/main.rs"
 
 [dependencies]
 # Core library
-securefox-core.workspace = true
-securefox-api = { path = "../api", optional = true }
+club-gclmit-securefox-core.workspace = true
+club-gclmit-securefox-api = { path = "../api", optional = true }
 
 # CLI framework
 clap = { version = "4.4", features = ["derive", "env"] }
@@ -50,9 +50,18 @@ passwords = "3.1"
 # File handling
 dirs = "5.0"
 
+# Tray dependencies (macOS-specific)
+[target.'cfg(target_os = "macos")'.dependencies]
+tray-icon = "0.11"
+tao = "0.25"
+muda = "0.11"
+reqwest = { version = "0.11", features = ["json"] }
+webbrowser = "0.8"
+cocoa = "0.25"
+
 [features]
 default = ["serve"]
-serve = ["dep:securefox-api"]
+serve = ["dep:club-gclmit-securefox-api"]
 
 [dev-dependencies]
 tempfile = "3.8"

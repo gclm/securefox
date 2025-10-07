@@ -35,7 +35,7 @@ pub mod auth_impl {
     }
 
     pub async fn status(State(state): State<AppState>) -> Result<Json<StatusResponse>> {
-        let storage = securefox_core::storage::VaultStorage::with_path(
+        let storage = club_gclmit_securefox_core::storage::VaultStorage::with_path(
             state.vault_path.join("vault.sf")
         );
         
@@ -50,7 +50,7 @@ pub mod auth_impl {
 // Simplified placeholder handlers for other modules
 pub mod items_impl {
     use axum::{extract::{Path, Query, State}, Json};
-    use securefox_core::models::Item;
+    use club_gclmit_securefox_core::models::Item;
     use crate::{models::ListItemsQuery, ApiError, AppState, Result};
 
     pub async fn list_items(
@@ -206,7 +206,7 @@ pub mod totp {
             .and_then(|l| l.totp)
             .ok_or(ApiError::BadRequest("Item has no TOTP".to_string()))?;
         
-        use securefox_core::totp::TotpConfig;
+        use club_gclmit_securefox_core::totp::TotpConfig;
         let config = TotpConfig::new(totp_secret);
         
         Ok(Json(TotpResponse {

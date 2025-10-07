@@ -59,9 +59,9 @@ impl From<anyhow::Error> for ApiError {
     }
 }
 
-impl From<securefox_core::Error> for ApiError {
-    fn from(err: securefox_core::Error) -> Self {
-        use securefox_core::Error;
+impl From<club_gclmit_securefox_core::Error> for ApiError {
+    fn from(err: club_gclmit_securefox_core::Error) -> Self {
+        use club_gclmit_securefox_core::Error;
         match err {
             Error::InvalidPassword => ApiError::InvalidPassword,
             Error::VaultNotFound => ApiError::NotFound,

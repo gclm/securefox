@@ -2,7 +2,7 @@ use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Password, Confirm};
 use passwords::PasswordGenerator;
-use securefox_core::{prelude::*, storage::VaultStorage};
+use club_gclmit_securefox_core::{prelude::*, storage::VaultStorage};
 use std::path::PathBuf;
 
 pub async fn execute(
@@ -104,7 +104,7 @@ pub async fn execute(
     // Git sync
     #[cfg(feature = "git")]
     {
-        use securefox_core::git_sync::GitSync;
+        use club_gclmit_securefox_core::git_sync::GitSync;
         if let Some(parent) = vault_path.parent() {
             let sync = GitSync::init(parent)?;
             sync.auto_commit_push(&format!("Added item: {}", name))?;

@@ -22,18 +22,33 @@ echo -e "${YELLOW}Installing SecureFox CLI...${NC}"
 sudo cp target/release/securefox /usr/local/bin/
 sudo chmod +x /usr/local/bin/securefox
 
-# Install tray application (macOS)
+# Install launchd service for tray (macOS)
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo -e "${YELLOW}Installing SecureFox Tray...${NC}"
-    sudo cp target/release/securefox-tray /usr/local/bin/
-    sudo chmod +x /usr/local/bin/securefox-tray
+    echo -e "${YELLOW}Installing launchd service for tray...${NC}"
     
-    # Install launchd service
-    echo -e "${YELLOW}Installing launchd service...${NC}"
-    cp club.gclmit.securefox.daemon.plist ~/Library/LaunchAgents/
+    # Create launchd plist
+    cat > ~/Library/LaunchAgents/club.gclmit.securefox.tray.plist << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>club.gclmit.securefox.tray</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/securefox</string>
+        <string>tray</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>
+EOF
     
-    echo -e "${YELLOW}Starting SecureFox daemon...${NC}"
-    launchctl load ~/Library/LaunchAgents/club.gclmit.securefox.daemon.plist
+    echo -e "${YELLOW}Loading tray service...${NC}"
+    launchctl load ~/Library/LaunchAgents/club.gclmit.securefox.tray.plist
 fi
 
 # Create vault directory
@@ -45,6 +60,6 @@ echo ""
 echo "Next steps:"
 echo "1. Initialize your vault: securefox init"
 echo "2. Start the API server: securefox serve"
-echo "3. Run the tray app: securefox-tray"
+echo "3. Run the tray app: securefox tray"
 echo ""
-echo "The daemon will start automatically on login."
+echo "The tray app will start automatically on login."

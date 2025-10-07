@@ -21,7 +21,7 @@ pub async fn execute(
     println!("Press Ctrl+C to stop");
     
     // Start API server
-    securefox_api::run(vault_path, host, port, timeout).await?;
+    club_gclmit_securefox_api::run(vault_path, host, port, timeout).await?;
     
     Ok(())
 }

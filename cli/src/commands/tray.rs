@@ -10,10 +10,8 @@ use tray_icon::{
     TrayIcon, TrayIconBuilder,
 };
 
-mod api_client;
-mod icons;
-
-use api_client::ApiClient;
+use crate::tray_api_client::ApiClient;
+use crate::tray_icons;
 
 #[derive(Clone)]
 struct AppState {
@@ -21,18 +19,19 @@ struct AppState {
     locked: bool,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+pub async fn execute() -> Result<()> {
+    println!("Starting SecureFox system tray...");
+    
     // Initialize logging
     tracing_subscriber::fmt()
-        .with_env_filter("info")
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
         .init();
 
     // Create event loop
     let event_loop = EventLoopBuilder::new().build();
     
     // Load tray icon
-    let icon = icons::get_tray_icon()?;
+    let icon = tray_icons::get_tray_icon()?;
 
     // Create menu
     let tray_menu = create_tray_menu();
@@ -166,7 +165,7 @@ fn handle_menu_event(event: MenuEvent, state: &mut AppState, tray_icon: &mut Tra
             unlock_vault(state, tray_icon);
         }
         "lock" => {
-            // Lock vault
+            // Lock vault  
             tracing::info!("Lock requested");
             lock_vault(state, tray_icon);
         }
@@ -194,54 +193,46 @@ fn handle_menu_event(event: MenuEvent, state: &mut AppState, tray_icon: &mut Tra
     }
 }
 
-fn unlock_vault(state: &mut AppState, tray_icon: &mut TrayIcon) {
+fn unlock_vault(state: &mut AppState, _tray_icon: &mut TrayIcon) {
     // In a real implementation, would show password dialog
     let api_client = state.api_client.clone();
     
     tokio::spawn(async move {
-        // For demo, using hardcoded password
+        // For demo, use a placeholder password
         match api_client.unlock("password").await {
-            Ok(response) => {
-                tracing::info!("Vault unlocked, token: {}", response.token);
-                // Store token for future requests
+            Ok(_) => {
+                tracing::info!("Vault unlocked successfully");
+                // Update menu state
             }
             Err(e) => {
-                tracing::error!("Failed to unlock: {}", e);
+                tracing::error!("Failed to unlock vault: {}", e);
             }
         }
     });
     
     state.locked = false;
-    update_menu_state(tray_icon, state.locked);
 }
 
-fn lock_vault(state: &mut AppState, tray_icon: &mut TrayIcon) {
+fn lock_vault(state: &mut AppState, _tray_icon: &mut TrayIcon) {
     let api_client = state.api_client.clone();
     
     tokio::spawn(async move {
-        if let Err(e) = api_client.lock().await {
-            tracing::error!("Failed to lock: {}", e);
+        match api_client.lock().await {
+            Ok(_) => {
+                tracing::info!("Vault locked successfully");
+            }
+            Err(e) => {
+                tracing::error!("Failed to lock vault: {}", e);
+            }
         }
     });
     
     state.locked = true;
-    update_menu_state(tray_icon, state.locked);
-}
-
-fn update_menu_state(tray_icon: &mut TrayIcon, locked: bool) {
-    // Update icon based on lock state
-    let icon = if locked {
-        icons::get_locked_icon()
-    } else {
-        icons::get_unlocked_icon()
-    }.unwrap_or_else(|_| icons::get_tray_icon().unwrap());
-    
-    tray_icon.set_icon(Some(icon)).ok();
 }
 
 fn open_extension() {
-    // Open browser with extension
-    if let Err(e) = open::that("chrome://extensions/") {
+    // Open browser extension or web UI
+    if let Err(e) = webbrowser::open("http://127.0.0.1:8787") {
         tracing::error!("Failed to open browser: {}", e);
     }
 }
@@ -250,13 +241,21 @@ fn generate_password(state: &AppState) {
     let api_client = state.api_client.clone();
     
     tokio::spawn(async move {
-        match api_client.generate_password(None).await {
-            Ok(response) => {
-                tracing::info!("Generated password: {}", response.password);
+        let req = crate::tray_api_client::GeneratePasswordRequest {
+            length: Some(24),
+            include_numbers: Some(true),
+            include_symbols: Some(true),
+        };
+        match api_client.generate_password(Some(req)).await {
+            Ok(resp) => {
+                tracing::info!("Generated password: {}", resp.password);
                 // Copy to clipboard
-                use clipboard::{ClipboardContext, ClipboardProvider};
-                if let Ok(mut ctx) = ClipboardContext::new() {
-                    let _ = ctx.set_contents(response.password);
+                #[cfg(feature = "clipboard")]
+                {
+                    use clipboard::{ClipboardContext, ClipboardProvider};
+                    if let Ok(mut ctx) = ClipboardContext::new() {
+                        let _ = ctx.set_contents(resp.password);
+                    }
                 }
             }
             Err(e) => {
@@ -271,13 +270,22 @@ fn sync_vault(state: &AppState) {
     
     tokio::spawn(async move {
         match api_client.sync_push().await {
-            Ok(_) => tracing::info!("Sync completed"),
-            Err(e) => tracing::error!("Sync failed: {}", e),
+            Ok(_) => {
+                tracing::info!("Sync completed successfully");
+            }
+            Err(e) => {
+                tracing::error!("Failed to sync: {}", e);
+            }
         }
     });
 }
 
 fn open_settings() {
+    // Open settings window
     tracing::info!("Opening settings...");
-    // In real implementation, would open settings window
+    // Could open a web UI or native window
+    if let Err(e) = webbrowser::open("http://127.0.0.1:8787/settings") {
+        tracing::error!("Failed to open settings: {}", e);
+    }
 }
+

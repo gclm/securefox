@@ -1,5 +1,9 @@
 mod commands;
 mod utils;
+#[cfg(target_os = "macos")]
+mod tray_api_client;
+#[cfg(target_os = "macos")]
+mod tray_icons;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -32,6 +36,9 @@ enum Commands {
         #[arg(short, long)]
         remote: Option<String>,
     },
+    /// Start the system tray application
+    #[cfg(target_os = "macos")]
+    Tray,
 
     /// Add a new item to the vault
     Add {
@@ -262,9 +269,12 @@ async fn main() -> Result<()> {
         Commands::Totp { item, copy } => {
             commands::totp::execute(vault_path, item, copy).await
         }
+        #[cfg(target_os = "macos")]
+        Commands::Tray => {
+            commands::tray::execute().await
+        }
     };
 
-    // Handle result
     match result {
         Ok(_) => {
             println!("{}", "✓ Success".green().bold());

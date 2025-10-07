@@ -1,5 +1,5 @@
 use parking_lot::RwLock;
-use securefox_core::{models::Vault, storage::VaultStorage};
+use club_gclmit_securefox_core::{models::Vault, storage::VaultStorage};
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -102,7 +102,7 @@ impl AppState {
         // Git sync if configured
         #[cfg(feature = "git")]
         {
-            use securefox_core::git_sync::GitSync;
+            use club_gclmit_securefox_core::git_sync::GitSync;
             if let Ok(sync) = GitSync::init(&self.vault_path) {
                 let _ = sync.auto_commit_push("API vault update");
             }

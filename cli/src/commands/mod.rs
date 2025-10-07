@@ -13,6 +13,8 @@ pub mod show;
 pub mod sync;
 pub mod totp;
 pub mod unlock;
+#[cfg(target_os = "macos")]
+pub mod tray;
 
 #[cfg(feature = "serve")]
 pub mod serve;

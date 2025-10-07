@@ -1,13 +1,13 @@
 [package]
-name = "securefox-api"
+name = "club-gclmit-securefox-api"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
 [dependencies]
-# Core library
-securefox-core.workspace = true
+# Core
+club-gclmit-securefox-core.workspace = true
 
 # Web framework
 axum = { version = "0.7", features = ["ws"] }

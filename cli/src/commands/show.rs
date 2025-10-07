@@ -1,7 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
 use clipboard::{ClipboardContext, ClipboardProvider};
-use securefox_core::totp::TotpConfig;
+use club_gclmit_securefox_core::totp::TotpConfig;
 use std::path::PathBuf;
 
 pub async fn execute(

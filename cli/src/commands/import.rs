@@ -1,7 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
-use securefox_core::{importers::{bitwarden::BitwardenImporter, Importer}, storage::VaultStorage};
+use club_gclmit_securefox_core::{importers::{bitwarden::BitwardenImporter, Importer}, storage::VaultStorage};
 use std::path::PathBuf;
 
 pub async fn execute(
@@ -50,7 +50,7 @@ pub async fn execute(
             .with_prompt("Enter master password for new vault")
             .with_confirmation("Confirm master password", "Passwords do not match")
             .interact()?;
-        (securefox_core::models::Vault::new(), password)
+        (club_gclmit_securefox_core::models::Vault::new(), password)
     };
     
     // Import with progress bar
@@ -88,7 +88,7 @@ pub async fn execute(
     // Git sync
     #[cfg(feature = "git")]
     {
-        use securefox_core::git_sync::GitSync;
+        use club_gclmit_securefox_core::git_sync::GitSync;
         if let Some(parent) = vault_path.parent() {
             let sync = GitSync::init(parent)?;
             sync.auto_commit_push(&format!("Imported {} items from {}", item_count, format))?;
