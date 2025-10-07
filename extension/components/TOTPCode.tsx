@@ -54,12 +54,17 @@ export const TOTPCode: React.FC<TOTPCodeProps> = ({ entryId, onCopy }) => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <div className="text-3xl font-mono font-bold text-gray-800 dark:text-gray-100 tracking-wider">
-            {code.slice(0, 3)} {code.slice(3, 6)}
-          </div>
+      {error ? (
+        <div className="text-sm text-red-500 dark:text-red-400">
+          {error} - 请检查TOTP密钥是否正确
         </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="text-3xl font-mono font-bold text-gray-800 dark:text-gray-100 tracking-wider">
+              {code.slice(0, 3)} {code.slice(3, 6)}
+            </div>
+          </div>
         
         <div className="flex items-center gap-2">
           <div className="flex flex-col items-center">
@@ -110,6 +115,7 @@ export const TOTPCode: React.FC<TOTPCodeProps> = ({ entryId, onCopy }) => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

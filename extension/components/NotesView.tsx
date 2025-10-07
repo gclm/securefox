@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FileText, Plus, Search, Edit2, Trash2, Calendar } from 'lucide-react';
+import { FileText, Plus, Search, Calendar } from 'lucide-react';
 import { useVaultStore, useUIStore } from '@/store';
 import { ItemType } from '@/types';
 
@@ -81,58 +81,30 @@ export const NotesView: React.FC = () => {
                 }}
                 className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-all hover:shadow-lg group"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-1">
-                      {note.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {truncateContent(note.content)}
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <Calendar className="w-3 h-3" />
-                        <span>{formatDate(note.updatedAt)}</span>
-                      </div>
-                      {note.tags.length > 0 && (
-                        <div className="flex gap-1">
-                          {note.tags.map(tag => (
-                            <span
-                              key={tag}
-                              className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                <div>
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-1 break-words">
+                    {note.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 break-words">
+                    {truncateContent(note.content)}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      <Calendar className="w-3 h-3" />
+                      <span>{formatDate(note.updatedAt)}</span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // TODO: Edit note
-                      }}
-                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    </button>
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const success = await deleteItem(note.id);
-                        if (success) {
-                          showNotification({
-                            type: 'success',
-                            title: '删除成功',
-                            message: '笔记已删除'
-                          });
-                        }
-                      }}
-                      className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-                      <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
-                    </button>
+                    {note.tags.length > 0 && (
+                      <div className="flex gap-1">
+                        {note.tags.map(tag => (
+                          <span
+                            key={tag}
+                            className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
