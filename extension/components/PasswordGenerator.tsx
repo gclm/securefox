@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { generatePassword as localGeneratePassword, copyToClipboard, clearClipboardAfterDelay } from '@/utils/helpers';
+import { generatePassword as apiGeneratePassword } from '@/lib/api/entries';
+import { copyToClipboard, clearClipboardAfterDelay } from '@/utils/helpers';
 import { PASSWORD_DEFAULTS, UI_CONFIG } from '@/utils/constants';
 import { useUIStore } from '@/store';
 
@@ -25,10 +26,25 @@ export const PasswordGenerator: React.FC = () => {
     generateNewPassword();
   }, [options.length, options.useUppercase, options.useLowercase, options.useNumbers, options.useSymbols]);
 
-  const generateNewPassword = () => {
-    const newPassword = localGeneratePassword(options);
-    setPassword(newPassword);
-    setCopied(false);
+  const generateNewPassword = async () => {
+    try {
+      const response = await apiGeneratePassword({
+        length: options.length,
+        uppercase: options.useUppercase,
+        lowercase: options.useLowercase,
+        numbers: options.useNumbers,
+        symbols: options.useSymbols,
+      });
+      setPassword(response.password);
+      setCopied(false);
+    } catch (error) {
+      console.error('Failed to generate password:', error);
+      showNotification({
+        type: 'error',
+        title: '生成密码失败',
+        message: '请稍后重试',
+      });
+    }
   };
 
   const handleCopy = async () => {
