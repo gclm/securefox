@@ -5,7 +5,7 @@ import {
   Settings, 
   LogOut, 
   Key, 
-  Star,
+  FileText,
   Clock,
   Folder,
   ChevronRight 
@@ -17,8 +17,13 @@ import { EntryList } from '@/components/EntryList';
 import { ItemType } from '@/types';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { SettingsView } from '@/components/SettingsView';
+import { DebugView } from '@/components/DebugView';
 
 export const MainView: React.FC = () => {
+  const [showSettings, setShowSettings] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+  
+  // 将所有hooks调用移到条件语句之前
   useKeyboardShortcuts();
   const { lock } = useAuthStore();
   const { 
@@ -33,7 +38,6 @@ export const MainView: React.FC = () => {
   const { activeView, setActiveView } = useUIStore();
   
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
-  const [showSettings, setShowSettings] = useState(false);
 
   // Load vault on mount
   useEffect(() => {
@@ -54,13 +58,36 @@ export const MainView: React.FC = () => {
   };
 
   const handleAddItem = () => {
-    // TODO: Implement add item modal
-    console.log('Add new item');
+    // 显示通知，功能开发中
+    const { showNotification } = useUIStore.getState();
+    showNotification({
+      type: 'info',
+      title: '功能开发中',
+      message: '添加密码功能即将推出'
+    });
   };
 
   // 如果显示设置页面，渲染设置视图
   if (showSettings) {
     return <SettingsView onBack={() => setShowSettings(false)} />;
+  }
+  
+  // 如果显示调试页面，渲染调试视图
+  if (showDebug) {
+    return (
+      <div className="flex flex-col h-screen">
+        <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-b">
+          <button
+            onClick={() => setShowDebug(false)}
+            className="px-4 py-2 bg-blue-500 text-white rounded"
+          >
+            返回
+          </button>
+          <span className="font-semibold">调试视图</span>
+        </header>
+        <DebugView />
+      </div>
+    );
   }
 
   return (
@@ -83,6 +110,16 @@ export const MainView: React.FC = () => {
             title="添加新项目"
           >
             <Plus className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          </button>
+          {/* 临时调试按钮 */}
+          <button
+            className="p-2 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-700 transition-colors"
+            onClick={() => setShowDebug(true)}
+            title="调试"
+          >
+            <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
           </button>
           <button
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -178,23 +215,23 @@ export const MainView: React.FC = () => {
             <span className="text-xs mt-1">信用卡</span>
           </button>
 
-          {/* Favorites */}
+          {/* Notes */}
           <button
-            onClick={() => setActiveView('favorites')}
+            onClick={() => setActiveView('notes')}
             className={`flex flex-col items-center p-2 rounded-lg transition-all ${
-              activeView === 'favorites'
+              activeView === 'notes'
                 ? 'text-blue-600 dark:text-blue-400'
                 : 'text-gray-500 dark:text-gray-400'
             }`}
           >
             <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-              activeView === 'favorites'
+              activeView === 'notes'
                 ? 'bg-blue-100 dark:bg-blue-900/30'
                 : ''
             }`}>
-              <Star className="w-5 h-5" />
+              <FileText className="w-5 h-5" />
             </div>
-            <span className="text-xs mt-1">收藏</span>
+            <span className="text-xs mt-1">笔记</span>
           </button>
 
           {/* Generator */}

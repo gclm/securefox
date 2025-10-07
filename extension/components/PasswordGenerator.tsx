@@ -111,26 +111,26 @@ export const PasswordGenerator: React.FC = () => {
             onClick={(e) => e.currentTarget.select()}
           />
           <div className="absolute right-1 top-1 flex gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
+            <button
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               onClick={generateNewPassword}
               title="生成新密码"
+              type="button"
             >
               <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
+            </button>
+            <button
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               onClick={handleCopy}
               title="复制密码"
+              type="button"
             >
               {copied ? (
                 <Check className="h-4 w-4 text-green-500" />
               ) : (
                 <Copy className="h-4 w-4" />
               )}
-            </Button>
+            </button>
           </div>
         </div>
 

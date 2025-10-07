@@ -6,7 +6,7 @@ interface UIState {
   notifications: Notification[];
   isGeneratorOpen: boolean;
   isSettingsOpen: boolean;
-  activeView: 'list' | 'favorites' | 'recent' | 'generator' | 'cards';
+  activeView: 'list' | 'favorites' | 'recent' | 'generator' | 'cards' | 'notes';
   theme: 'light' | 'dark' | 'system';
   
   // Actions

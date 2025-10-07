@@ -37,14 +37,6 @@ export default defineConfig({
       '32': 'icon/32.png',
       '48': 'icon/48.png',
       '128': 'icon/128.png'
-    },
-    content_scripts: [
-      {
-        matches: ['<all_urls>'],
-        js: ['content-scripts/content.js'],
-        run_at: 'document_idle',
-        all_frames: true
-      }
-    ]
+    }
   }
 });

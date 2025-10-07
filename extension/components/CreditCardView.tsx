@@ -1,31 +1,49 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { CreditCard, Plus } from 'lucide-react';
+import { useUIStore, useVaultStore } from '@/store';
+import { ItemType } from '@/types';
 
 export const CreditCardView: React.FC = () => {
-  // 模拟数据
-  const cards = [
-    {
-      id: '1',
-      name: '工商银行信用卡',
-      type: 'Visa',
-      lastFour: '4242',
-      expiry: '12/25',
-      color: 'bg-gradient-to-br from-blue-500 to-blue-700'
-    },
-    {
-      id: '2', 
-      name: '招商银行信用卡',
-      type: 'Mastercard',
-      lastFour: '8888',
-      expiry: '08/24',
-      color: 'bg-gradient-to-br from-purple-500 to-purple-700'
-    }
-  ];
+  const { showNotification } = useUIStore();
+  const { items } = useVaultStore();
+  const [showAddForm, setShowAddForm] = useState(false);
+  
+  // 从 vault store 过滤出信用卡类型的项目
+  const cards = useMemo(() => {
+    return items
+      .filter(item => item.type === ItemType.Card && item.card)
+      .map((item, index) => ({
+        id: item.id,
+        name: item.name,
+        type: item.card?.brand || 'Card',
+        lastFour: item.card?.number?.slice(-4) || '****',
+        expiry: item.card?.expMonth && item.card?.expYear 
+          ? `${item.card.expMonth}/${item.card.expYear}` 
+          : 'N/A',
+        cardholderName: item.card?.cardholderName || 'N/A',
+        // 根据品牌选择不同的颜色
+        color: item.card?.brand?.toLowerCase() === 'visa' 
+          ? 'bg-gradient-to-br from-blue-500 to-blue-700'
+          : item.card?.brand?.toLowerCase() === 'mastercard'
+          ? 'bg-gradient-to-br from-purple-500 to-purple-700'
+          : 'bg-gradient-to-br from-gray-500 to-gray-700',
+        notes: item.notes
+      }));
+  }, [items]);
 
   return (
     <div className="p-4 space-y-4">
       {/* 添加按钮 */}
-      <button className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
+      <button 
+        onClick={() => {
+          showNotification({
+            type: 'info',
+            title: '功能开发中',
+            message: '添加信用卡功能即将推出'
+          });
+        }}
+        className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
+      >
         <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400">
           <Plus className="w-5 h-5" />
           <span className="font-medium">添加信用卡</span>
@@ -52,7 +70,7 @@ export const CreditCardView: React.FC = () => {
             <div className="flex justify-between">
               <div>
                 <p className="text-xs opacity-80">持卡人</p>
-                <p className="font-medium">ZHANG SAN</p>
+                <p className="font-medium">{card.cardholderName}</p>
               </div>
               <div>
                 <p className="text-xs opacity-80">有效期</p>
