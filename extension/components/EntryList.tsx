@@ -1,19 +1,34 @@
 import React from 'react';
 import { Key, Star, Clock, FileText } from 'lucide-react';
 import { useVaultStore } from '@/store';
+import { CreditCardView } from './CreditCardView';
+import { FavoritesView } from './FavoritesView';
+import { PasswordGenerator } from './PasswordGenerator';
 
 interface EntryListProps {
-  view: 'list' | 'favorites' | 'recent' | 'generator';
+  view: 'list' | 'favorites' | 'recent' | 'generator' | 'cards';
 }
 
 export const EntryList: React.FC<EntryListProps> = ({ view }) => {
   const { filteredItems, favoriteItems, recentItems } = useVaultStore();
 
-  // Determine which items to display
-  let items = filteredItems;
+  // 如果是特殊视图，渲染对应组件
+  if (view === 'cards') {
+    return <CreditCardView />;
+  }
+  
+  if (view === 'generator') {
+    return <PasswordGenerator />;
+  }
+
+  // 对于收藏夹视图，使用新的收藏夹组件
   if (view === 'favorites') {
-    items = favoriteItems;
-  } else if (view === 'recent') {
+    return <FavoritesView />;
+  }
+
+  // Determine which items to display for list and recent views
+  let items = filteredItems;
+  if (view === 'recent') {
     items = recentItems;
   }
 

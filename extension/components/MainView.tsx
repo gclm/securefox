@@ -16,6 +16,7 @@ import { useAuthStore, useVaultStore, useUIStore } from '@/store';
 import { EntryList } from '@/components/EntryList';
 import { ItemType } from '@/types';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { SettingsView } from '@/components/SettingsView';
 
 export const MainView: React.FC = () => {
   useKeyboardShortcuts();
@@ -32,6 +33,7 @@ export const MainView: React.FC = () => {
   const { activeView, setActiveView } = useUIStore();
   
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Load vault on mount
   useEffect(() => {
@@ -56,6 +58,11 @@ export const MainView: React.FC = () => {
     console.log('Add new item');
   };
 
+  // 如果显示设置页面，渲染设置视图
+  if (showSettings) {
+    return <SettingsView onBack={() => setShowSettings(false)} />;
+  }
+
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
       {/* Header */}
@@ -77,10 +84,7 @@ export const MainView: React.FC = () => {
           </button>
           <button
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            onClick={() => {
-              // TODO: Implement settings
-              console.log('Open settings');
-            }}
+            onClick={() => setShowSettings(true)}
             title="设置"
           >
             <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -125,6 +129,94 @@ export const MainView: React.FC = () => {
           <EntryList view={activeView} />
         )}
       </div>
+
+      {/* Bottom Navigation */}
+      <nav className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex justify-around py-2">
+          {/* All Items */}
+          <button
+            onClick={() => {
+              setActiveView('list');
+              selectFolder(null);
+            }}
+            className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+              activeView === 'list'
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+              activeView === 'list'
+                ? 'bg-blue-100 dark:bg-blue-900/30'
+                : ''
+            }`}>
+              <Key className="w-5 h-5" />
+            </div>
+            <span className="text-xs mt-1">登录</span>
+          </button>
+
+          {/* Cards */}
+          <button
+            onClick={() => setActiveView('cards')}
+            className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+              activeView === 'cards'
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+              activeView === 'cards'
+                ? 'bg-blue-100 dark:bg-blue-900/30'
+                : ''
+            }`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            </div>
+            <span className="text-xs mt-1">信用卡</span>
+          </button>
+
+          {/* Favorites */}
+          <button
+            onClick={() => setActiveView('favorites')}
+            className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+              activeView === 'favorites'
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+              activeView === 'favorites'
+                ? 'bg-blue-100 dark:bg-blue-900/30'
+                : ''
+            }`}>
+              <Star className="w-5 h-5" />
+            </div>
+            <span className="text-xs mt-1">收藏</span>
+          </button>
+
+          {/* Generator */}
+          <button
+            onClick={() => setActiveView('generator')}
+            className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+              activeView === 'generator'
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+              activeView === 'generator'
+                ? 'bg-blue-100 dark:bg-blue-900/30'
+                : ''
+            }`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+            </div>
+            <span className="text-xs mt-1">生成器</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 };
