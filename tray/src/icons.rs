@@ -1,5 +1,5 @@
 use anyhow::Result;
-use tray_icon::icon::Icon;
+use tray_icon::Icon;
 
 /// Get the default tray icon
 pub fn get_tray_icon() -> Result<Icon> {

@@ -1,10 +1,9 @@
 use anyhow::Result;
-use muda::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use muda::{Menu, MenuId, PredefinedMenuItem, Submenu};
 use std::sync::Arc;
 use tao::{
     event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
-    window::WindowBuilder,
+    event_loop::{ControlFlow, EventLoopBuilder},
 };
 use tray_icon::{
     menu::{AboutMetadata, MenuEvent, MenuItemBuilder},
@@ -22,7 +21,8 @@ struct AppState {
     locked: bool,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // Initialize logging
     tracing_subscriber::fmt()
         .with_env_filter("info")
@@ -52,7 +52,7 @@ fn main() -> Result<()> {
         locked: true,
     };
 
-    // Check initial status
+    // Check initial status in background
     let api_client_clone = api_client.clone();
     tokio::spawn(async move {
         if let Ok(status) = api_client_clone.status().await {
@@ -91,12 +91,12 @@ fn create_tray_menu() -> Menu {
     // Unlock/Lock
     let unlock_item = MenuItemBuilder::new()
         .text("Unlock Vault")
-        .id(1)
+        .id(MenuId::new("unlock"))
         .build();
     
     let lock_item = MenuItemBuilder::new()
         .text("Lock Vault")
-        .id(2)
+        .id(MenuId::new("lock"))
         .enabled(false)
         .build();
     
@@ -108,11 +108,11 @@ fn create_tray_menu() -> Menu {
     let quick_menu = Submenu::new("Quick Access", true);
     quick_menu.append(&MenuItemBuilder::new()
         .text("Open Extension")
-        .id(10)
+        .id(MenuId::new("open_ext"))
         .build()).unwrap();
     quick_menu.append(&MenuItemBuilder::new()
         .text("Generate Password")
-        .id(11)
+        .id(MenuId::new("gen_pass"))
         .build()).unwrap();
     
     menu.append(&quick_menu).unwrap();
@@ -121,7 +121,7 @@ fn create_tray_menu() -> Menu {
     // Sync
     let sync_item = MenuItemBuilder::new()
         .text("Sync Now")
-        .id(20)
+        .id(MenuId::new("sync"))
         .enabled(false)
         .build();
     
@@ -131,7 +131,7 @@ fn create_tray_menu() -> Menu {
     // Settings and About
     let settings_item = MenuItemBuilder::new()
         .text("Settings...")
-        .id(30)
+        .id(MenuId::new("settings"))
         .build();
     
     menu.append(&settings_item).unwrap();
@@ -150,8 +150,7 @@ fn create_tray_menu() -> Menu {
     // Quit
     let quit_item = MenuItemBuilder::new()
         .text("Quit SecureFox")
-        .id(99)
-        .accelerator("Cmd+Q")
+        .id(MenuId::new("quit"))
         .build();
     
     menu.append(&quit_item).unwrap();
@@ -160,34 +159,34 @@ fn create_tray_menu() -> Menu {
 }
 
 fn handle_menu_event(event: MenuEvent, state: &mut AppState, tray_icon: &mut TrayIcon) {
-    match event.id {
-        1 => {
+    match event.id.as_ref() {
+        "unlock" => {
             // Unlock vault
             tracing::info!("Unlock requested");
             unlock_vault(state, tray_icon);
         }
-        2 => {
+        "lock" => {
             // Lock vault
             tracing::info!("Lock requested");
             lock_vault(state, tray_icon);
         }
-        10 => {
+        "open_ext" => {
             // Open extension
             open_extension();
         }
-        11 => {
+        "gen_pass" => {
             // Generate password
             generate_password(state);
         }
-        20 => {
+        "sync" => {
             // Sync
             sync_vault(state);
         }
-        30 => {
+        "settings" => {
             // Settings
             open_settings();
         }
-        99 => {
+        "quit" => {
             // Quit
             std::process::exit(0);
         }
@@ -255,7 +254,8 @@ fn generate_password(state: &AppState) {
             Ok(response) => {
                 tracing::info!("Generated password: {}", response.password);
                 // Copy to clipboard
-                if let Ok(mut ctx) = clipboard::ClipboardProvider::new() {
+                use clipboard::{ClipboardContext, ClipboardProvider};
+                if let Ok(mut ctx) = ClipboardContext::new() {
                     let _ = ctx.set_contents(response.password);
                 }
             }

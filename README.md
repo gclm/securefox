@@ -43,8 +43,8 @@ cargo install --path cli
 securefox serve
 
 # Or install as system service (macOS)
-cp docs/com.securefox.daemon.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.securefox.daemon.plist
+cp club.gclmit.securefox.daemon.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/club.gclmit.securefox.daemon.plist
 ```
 
 ## Security

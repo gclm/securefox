@@ -5,11 +5,9 @@ mod models;
 mod state;
 
 use axum::{
-    extract::Request,
-    http::{HeaderValue, Method, StatusCode},
+    http::{HeaderValue, Method},
     middleware,
-    response::Response,
-    routing::{get, post},
+    routing::{get, post, put, delete},
     Router,
 };
 use std::net::SocketAddr;
@@ -93,12 +91,19 @@ pub async fn run(
 ) -> Result<()> {
     let app = create_app(vault_path, Duration::from_secs(unlock_timeout));
     
-    let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
+    let addr: SocketAddr = format!("{}:{}", host, port)
+        .parse()
+        .map_err(|e| ApiError::Internal(format!("Invalid address: {}", e)))?;
     
     tracing::info!("SecureFox API listening on {}", addr);
     
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to bind: {}", e)))?;
+    
+    axum::serve(listener, app)
+        .await
+        .map_err(|e| ApiError::Internal(format!("Server error: {}", e)))?;
     
     Ok(())
 }

@@ -40,8 +40,9 @@ pub async fn execute(
         if let Some(ref password) = login.password {
             if copy && !totp {
                 // Copy password to clipboard
-                let mut ctx: ClipboardContext = ClipboardProvider::new()?;
-                ctx.set_contents(password.clone())?;
+                if let Ok(mut ctx) = ClipboardContext::new() {
+                    let _ = ctx.set_contents(password.clone());
+                }
                 println!("{}: {} (copied to clipboard)", 
                     "Password".cyan().bold(), 
                     "*".repeat(password.len()).dimmed()
@@ -54,13 +55,14 @@ pub async fn execute(
         if let Some(ref totp_secret) = login.totp {
             if totp {
                 let config = TotpConfig::from_uri(totp_secret)
-                    .or_else(|_| Ok(TotpConfig::new(totp_secret.clone())))?;
+                    .or_else(|_| Ok::<TotpConfig, anyhow::Error>(TotpConfig::new(totp_secret.clone())))?;
                 let code = config.generate()?;
                 let ttl = config.ttl();
                 
                 if copy {
-                    let mut ctx: ClipboardContext = ClipboardProvider::new()?;
-                    ctx.set_contents(code.clone())?;
+                    if let Ok(mut ctx) = ClipboardContext::new() {
+                        let _ = ctx.set_contents(code.clone());
+                    }
                     println!("{}: {} (expires in {}s, copied)", 
                         "TOTP".cyan().bold(), 
                         code.green().bold(),

@@ -24,10 +24,10 @@ impl TotpConfig {
         Ok(Self {
             secret: totp.get_secret_base32(),
             issuer: totp.issuer,
-            account_name: totp.account_name,
+            account_name: Some(totp.account_name),
             algorithm: totp.algorithm,
             digits: totp.digits,
-            period: totp.period,
+            period: totp.step,
         })
     }
 
@@ -96,7 +96,7 @@ impl TotpConfig {
     /// Generate QR code as PNG bytes
     pub fn to_qr_png(&self) -> Result<Vec<u8>> {
         let totp = self.to_totp()?;
-        totp.get_qr()
+        totp.get_qr_png()
             .map_err(|e| Error::Other(format!("QR generation failed: {}", e)))
     }
 }

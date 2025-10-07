@@ -1,4 +1,4 @@
-mod placeholder;
+pub mod placeholder;
 
 pub mod add;
 pub mod edit;

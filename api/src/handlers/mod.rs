@@ -1,11 +1,3 @@
-pub mod auth;
-pub mod generate;
-pub mod health;
-pub mod items;
-pub mod sync;
-pub mod totp;
-pub mod websocket;
-
 // handlers/auth.rs
 pub mod auth_impl {
     use axum::{extract::State, Json};

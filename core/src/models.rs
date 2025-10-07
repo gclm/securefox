@@ -153,7 +153,7 @@ impl Item {
             card: None,
             identity: None,
             secure_note: Some(SecureNoteData { 
-                type_: SecureNoteType::Generic 
+                type_: SecureNoteType::GENERIC
             }),
             fields: None,
             reprompt: None,

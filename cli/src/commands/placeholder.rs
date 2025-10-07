@@ -43,6 +43,7 @@ pub mod generate {
     use super::*;
     use passwords::PasswordGenerator;
     use colored::Colorize;
+    use clipboard::{ClipboardContext, ClipboardProvider};
     
     pub async fn execute(length: usize, numbers: bool, symbols: bool, copy: bool) -> Result<()> {
         let pg = PasswordGenerator {
@@ -60,9 +61,9 @@ pub mod generate {
         println!("{}", password.green().bold());
         
         if copy {
-            clipboard::ClipboardProvider::new()
-                .and_then(|mut ctx: clipboard::ClipboardContext| ctx.set_contents(password))
-                .ok();
+            if let Ok(mut ctx) = ClipboardContext::new() {
+                let _ = ctx.set_contents(password);
+            }
             println!("Password copied to clipboard");
         }
         
@@ -164,6 +165,7 @@ pub mod sync {
 pub mod totp {
     use super::*;
     use securefox_core::totp::TotpConfig;
+    use clipboard::{ClipboardContext, ClipboardProvider};
     
     pub async fn execute(vault_path: Option<PathBuf>, item: String, copy: bool) -> Result<()> {
         // Placeholder - would load vault and find item
@@ -174,9 +176,9 @@ pub mod totp {
         println!("TOTP: {} (expires in {}s)", code, ttl);
         
         if copy {
-            clipboard::ClipboardProvider::new()
-                .and_then(|mut ctx: clipboard::ClipboardContext| ctx.set_contents(code))
-                .ok();
+            if let Ok(mut ctx) = ClipboardContext::new() {
+                let _ = ctx.set_contents(code);
+            }
         }
         
         Ok(())

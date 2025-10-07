@@ -1,3 +1,1 @@
-use super::placeholder::totp::*;
-
-pub use execute;
+pub use super::placeholder::totp::execute;
