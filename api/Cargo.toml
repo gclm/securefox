@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+default = []
+git = []
+
 [dependencies]
 # Core
 securefox-core.workspace = true

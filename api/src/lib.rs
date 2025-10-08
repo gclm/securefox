@@ -5,7 +5,7 @@ mod models;
 mod state;
 
 use axum::{
-    http::{HeaderValue, Method},
+    http::Method,
     middleware,
     routing::{delete, get, post, put},
     Router,

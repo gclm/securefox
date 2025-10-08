@@ -112,15 +112,9 @@ pub struct BitwardenField {
 /// Bitwarden JSON importer
 pub struct BitwardenImporter;
 
-impl Default for BitwardenImporter {
-    fn default() -> Self {
-        Self
-    }
-}
-
 impl BitwardenImporter {
     pub fn new() -> Self {
-        Self::default()
+        Self
     }
 
     fn convert_folder(folder: &BitwardenFolder) -> Folder {
@@ -242,6 +236,12 @@ impl BitwardenImporter {
     }
 }
 
+impl Default for BitwardenImporter {
+    fn default() -> Self {
+        BitwardenImporter
+    }
+}
+
 impl Importer for BitwardenImporter {
     fn import(&self, data: &str) -> Result<Vault> {
         let export: BitwardenExport = serde_json::from_str(data)
@@ -274,15 +274,15 @@ impl Importer for BitwardenImporter {
 /// Bitwarden JSON exporter
 pub struct BitwardenExporter;
 
-impl Default for BitwardenExporter {
-    fn default() -> Self {
+impl BitwardenExporter {
+    pub fn new() -> Self {
         Self
     }
 }
 
-impl BitwardenExporter {
-    pub fn new() -> Self {
-        Self::default()
+impl Default for BitwardenExporter {
+    fn default() -> Self {
+        BitwardenExporter
     }
 }
 

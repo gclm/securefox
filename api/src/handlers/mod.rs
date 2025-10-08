@@ -53,7 +53,6 @@ pub mod items_impl {
     use axum::extract::Extension;
     use axum::{
         extract::{Path, Query, State},
-        http::{Request, StatusCode},
         Json,
     };
     use chrono::Utc;
@@ -120,8 +119,8 @@ pub mod items_impl {
         if req.item_type == securefox_core::models::ItemType::LOGIN {
             if let Some(ref req_login) = req.login {
                 // Extract request username and password for comparison
-                let req_username = req_login.username.as_ref().map(|s| s.as_str());
-                let req_password = req_login.password.as_ref().map(|s| s.as_str());
+                let req_username = req_login.username.as_deref();
+                let req_password = req_login.password.as_deref();
                 let req_uris = req_login.uris.as_ref();
 
                 // Check each existing item for duplicates
@@ -132,7 +131,7 @@ pub mod items_impl {
 
                     if let Some(ref existing_login) = existing_item.login {
                         // Check if username matches
-                        if existing_login.username.as_ref().map(|s| s.as_str()) != req_username {
+                        if existing_login.username.as_deref() != req_username {
                             continue;
                         }
 
@@ -154,7 +153,7 @@ pub mod items_impl {
 
                         // Found matching URI + username
                         // Check if password also matches
-                        if existing_login.password.as_ref().map(|s| s.as_str()) == req_password {
+                        if existing_login.password.as_deref() == req_password {
                             // Complete duplicate - return existing item without saving
                             return Ok(Json(existing_item.clone()));
                         }
