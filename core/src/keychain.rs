@@ -55,7 +55,8 @@ impl Keychain {
 
         // Decode from base64
         use base64::{engine::general_purpose::STANDARD, Engine};
-        let decoded = STANDARD.decode(&encoded)
+        let decoded = STANDARD
+            .decode(&encoded)
             .map_err(|e| Error::Keychain(format!("Invalid key format: {}", e)))?;
 
         Ok(Zeroizing::new(decoded))

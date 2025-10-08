@@ -1,8 +1,7 @@
 //! Git synchronization for vault
 
 use git2::{
-    Cred, CredentialType, FetchOptions, PushOptions, RemoteCallbacks, Repository,
-    Signature, Status,
+    Cred, CredentialType, FetchOptions, PushOptions, RemoteCallbacks, Repository, Signature, Status,
 };
 use std::env;
 use std::path::{Path, PathBuf};
