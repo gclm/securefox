@@ -34,7 +34,11 @@ pub mod edit {
 pub mod export {
     use super::*;
 
-    pub async fn execute(_vault_path: Option<PathBuf>, _file: PathBuf, _format: String) -> Result<()> {
+    pub async fn execute(
+        _vault_path: Option<PathBuf>,
+        _file: PathBuf,
+        _format: String,
+    ) -> Result<()> {
         Ok(())
     }
 }
@@ -80,7 +84,11 @@ pub mod import {
     use securefox_core::importers::Importer;
 
     #[allow(dead_code)]
-    pub async fn execute(_vault_path: Option<PathBuf>, file: PathBuf, format: String) -> Result<()> {
+    pub async fn execute(
+        _vault_path: Option<PathBuf>,
+        file: PathBuf,
+        format: String,
+    ) -> Result<()> {
         let data = std::fs::read_to_string(file)?;
 
         let vault = match format.as_str() {
