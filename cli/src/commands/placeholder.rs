@@ -8,13 +8,14 @@ use std::path::PathBuf;
 pub mod add {
     use super::*;
 
+    #[allow(dead_code)]
     pub async fn execute(
-        vault_path: Option<PathBuf>,
-        name: String,
-        item_type: String,
-        username: Option<String>,
-        generate: bool,
-        totp: Option<String>,
+        _vault_path: Option<PathBuf>,
+        _name: String,
+        _item_type: String,
+        _username: Option<String>,
+        _generate: bool,
+        _totp: Option<String>,
     ) -> Result<()> {
         Ok(())
     }
@@ -24,7 +25,7 @@ pub mod add {
 pub mod edit {
     use super::*;
 
-    pub async fn execute(vault_path: Option<PathBuf>, item: String) -> Result<()> {
+    pub async fn execute(_vault_path: Option<PathBuf>, _item: String) -> Result<()> {
         Ok(())
     }
 }
@@ -33,7 +34,7 @@ pub mod edit {
 pub mod export {
     use super::*;
 
-    pub async fn execute(vault_path: Option<PathBuf>, file: PathBuf, format: String) -> Result<()> {
+    pub async fn execute(_vault_path: Option<PathBuf>, _file: PathBuf, _format: String) -> Result<()> {
         Ok(())
     }
 }
@@ -78,7 +79,8 @@ pub mod import {
     use securefox_core::importers::bitwarden::BitwardenImporter;
     use securefox_core::importers::Importer;
 
-    pub async fn execute(vault_path: Option<PathBuf>, file: PathBuf, format: String) -> Result<()> {
+    #[allow(dead_code)]
+    pub async fn execute(_vault_path: Option<PathBuf>, file: PathBuf, format: String) -> Result<()> {
         let data = std::fs::read_to_string(file)?;
 
         let vault = match format.as_str() {
@@ -98,11 +100,12 @@ pub mod import {
 pub mod list {
     use super::*;
 
+    #[allow(dead_code)]
     pub async fn execute(
-        vault_path: Option<PathBuf>,
-        folder: Option<String>,
-        search: Option<String>,
-        detailed: bool,
+        _vault_path: Option<PathBuf>,
+        _folder: Option<String>,
+        _search: Option<String>,
+        _detailed: bool,
     ) -> Result<()> {
         Ok(())
     }
@@ -112,7 +115,7 @@ pub mod list {
 pub mod lock {
     use super::*;
 
-    pub async fn execute(vault_path: Option<PathBuf>) -> Result<()> {
+    pub async fn execute(_vault_path: Option<PathBuf>) -> Result<()> {
         Ok(())
     }
 }
@@ -121,7 +124,7 @@ pub mod lock {
 pub mod remove {
     use super::*;
 
-    pub async fn execute(vault_path: Option<PathBuf>, item: String, force: bool) -> Result<()> {
+    pub async fn execute(_vault_path: Option<PathBuf>, _item: String, _force: bool) -> Result<()> {
         Ok(())
     }
 }
@@ -130,11 +133,12 @@ pub mod remove {
 pub mod show {
     use super::*;
 
+    #[allow(dead_code)]
     pub async fn execute(
-        vault_path: Option<PathBuf>,
-        item: String,
-        copy: bool,
-        totp: bool,
+        _vault_path: Option<PathBuf>,
+        _item: String,
+        _copy: bool,
+        _totp: bool,
     ) -> Result<()> {
         Ok(())
     }
@@ -175,7 +179,7 @@ pub mod totp {
     use copypasta_ext::x11_fork::ClipboardContext;
     use securefox_core::totp::TotpConfig;
 
-    pub async fn execute(vault_path: Option<PathBuf>, item: String, copy: bool) -> Result<()> {
+    pub async fn execute(_vault_path: Option<PathBuf>, _item: String, copy: bool) -> Result<()> {
         // Placeholder - would load vault and find item
         let config = TotpConfig::new("JBSWY3DPEHPK3PXP".to_string());
         let code = config.generate()?;
@@ -197,7 +201,7 @@ pub mod totp {
 pub mod unlock {
     use super::*;
 
-    pub async fn execute(vault_path: Option<PathBuf>, remember: bool) -> Result<()> {
+    pub async fn execute(_vault_path: Option<PathBuf>, _remember: bool) -> Result<()> {
         Ok(())
     }
 }
@@ -207,11 +211,12 @@ pub mod unlock {
 pub mod serve {
     use super::*;
 
+    #[allow(dead_code)]
     pub async fn execute(
-        vault_path: Option<PathBuf>,
+        _vault_path: Option<PathBuf>,
         host: String,
         port: u16,
-        timeout: u64,
+        _timeout: u64,
     ) -> Result<()> {
         println!("Starting API server on {}:{}", host, port);
         // Will integrate with API crate

@@ -27,11 +27,7 @@ pub async fn execute(
 
     // Display basic info
     println!("{}: {}", "Name".cyan().bold(), item.name);
-    println!(
-        "{}: {}",
-        "Type".cyan().bold(),
-        format!("{:?}", item.item_type)
-    );
+    println!("{}: {:?}", "Type".cyan().bold(), item.item_type);
 
     if item.favorite {
         println!("{}: {}", "Favorite".cyan().bold(), "★".yellow());

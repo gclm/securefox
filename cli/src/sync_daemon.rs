@@ -10,6 +10,7 @@ use tokio::time::{interval, Duration};
 use securefox_core::git_sync::GitSync;
 
 /// Sync daemon for automatic vault synchronization
+#[allow(dead_code)]
 pub struct SyncDaemon {
     vault_path: PathBuf,
     config: Arc<RwLock<Option<SyncConfig>>>,
@@ -17,6 +18,7 @@ pub struct SyncDaemon {
 
 impl SyncDaemon {
     /// Create a new sync daemon
+    #[allow(dead_code)]
     pub fn new(vault_path: PathBuf) -> Self {
         Self {
             vault_path,
@@ -25,6 +27,7 @@ impl SyncDaemon {
     }
 
     /// Load sync configuration from vault
+    #[allow(dead_code)]
     pub async fn load_config(&self, password: &str) -> Result<()> {
         let storage = VaultStorage::with_path(self.vault_path.join("vault.sf"));
 
@@ -38,6 +41,7 @@ impl SyncDaemon {
     }
 
     /// Start the sync daemon
+    #[allow(dead_code)]
     pub async fn start(&self) {
         let config_clone = self.config.clone();
         let vault_path = self.vault_path.clone();
@@ -114,6 +118,7 @@ impl SyncDaemon {
     }
 
     /// Update sync configuration
+    #[allow(dead_code)]
     pub async fn update_config(&self, config: Option<SyncConfig>) {
         let mut guard = self.config.write().await;
         *guard = config;

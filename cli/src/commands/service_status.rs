@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use colored::Colorize;
 use std::fs;
 
@@ -17,8 +17,12 @@ pub async fn execute() -> Result<()> {
         return Ok(());
     }
 
-    let pid_str = fs::read_to_string(&pid_file).context("Failed to read PID file")?;
-    let pid: u32 = pid_str.trim().parse().context("Invalid PID in file")?;
+    let pid_str = fs::read_to_string(&pid_file)
+        .map_err(|e| anyhow::anyhow!("Failed to read PID file: {}", e))?;
+    let pid: u32 = pid_str
+        .trim()
+        .parse()
+        .map_err(|e| anyhow::anyhow!("Invalid PID in file: {}", e))?;
 
     // Check if process is running
     let is_running = check_process_running(pid);
@@ -39,7 +43,7 @@ pub async fn execute() -> Result<()> {
                 .output()
             {
                 if let Ok(info) = String::from_utf8(output.stdout) {
-                    let parts: Vec<&str> = info.trim().split_whitespace().collect();
+                    let parts: Vec<&str> = info.split_whitespace().collect();
                     if parts.len() >= 2 {
                         println!("Uptime: {}", parts[0]);
                         let mem_kb: usize = parts[1].parse().unwrap_or(0);

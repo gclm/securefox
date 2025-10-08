@@ -1,6 +1,6 @@
 use anyhow::Result;
 use colored::Colorize;
-use dialoguer::{Input, Password};
+use dialoguer::Password;
 use securefox_core::{crypto::KdfParams, prelude::*, storage::VaultStorage};
 use std::path::PathBuf;
 
@@ -15,7 +15,7 @@ pub async fn execute(
     let vault_path = vault_path.ok_or_else(|| anyhow::anyhow!("Vault path not specified"))?;
 
     // Check if vault already exists
-    let storage = VaultStorage::with_path(&vault_path.join("vault.sf"));
+    let storage = VaultStorage::with_path(vault_path.join("vault.sf"));
     if storage.exists() {
         return Err(anyhow::anyhow!("Vault already exists at this location"));
     }

@@ -179,9 +179,9 @@ jobs:
         run: |
           mkdir -p ../artifacts
           if [ "${{ matrix.browser }}" = "chrome" ]; then
-            mv .output/*.zip ../artifacts/securefox-extension-chrome.zip || true
+            mv .output/securefox-extension-*-chrome.zip ../artifacts/securefox-extension-chrome.zip || true
           else
-            mv .output/*.zip ../artifacts/securefox-extension-firefox.zip || true
+            mv .output/securefox-extension-*-firefox.zip ../artifacts/securefox-extension-firefox.zip || true
           fi
 
       - name: Upload artifact

@@ -1,5 +1,4 @@
-use anyhow::{Context, Result};
-use std::fs;
+use anyhow::Result;
 use std::path::PathBuf;
 
 pub async fn execute() -> Result<()> {
@@ -24,7 +23,8 @@ async fn install_launchd_service() -> Result<()> {
     let plist_path = launch_agents_dir.join("com.gclm.securefox.plist");
 
     // Get current executable path
-    let current_exe = std::env::current_exe().context("Failed to get current executable path")?;
+    let current_exe = std::env::current_exe()
+        .map_err(|e| anyhow::anyhow!("Failed to get current executable path: {}", e))?;
 
     // Install binary to /usr/local/bin
     let target_path = PathBuf::from("/usr/local/bin/securefox");
@@ -40,7 +40,7 @@ async fn install_launchd_service() -> Result<()> {
             .arg("-p")
             .arg(&target_dir)
             .status()
-            .context("Failed to create /usr/local/bin directory")?;
+            .map_err(|e| anyhow::anyhow!("Failed to create /usr/local/bin directory: {}", e))?;
     }
 
     // Copy executable to /usr/local/bin using sudo
@@ -49,7 +49,7 @@ async fn install_launchd_service() -> Result<()> {
         .arg(&current_exe)
         .arg(&target_path)
         .status()
-        .context("Failed to copy executable")?;
+        .map_err(|e| anyhow::anyhow!("Failed to copy executable: {}", e))?;
 
     if !copy_result.success() {
         anyhow::bail!("Failed to copy executable to {}", target_path.display());
@@ -61,7 +61,7 @@ async fn install_launchd_service() -> Result<()> {
         .arg("+x")
         .arg(&target_path)
         .status()
-        .context("Failed to set executable permissions")?;
+        .map_err(|e| anyhow::anyhow!("Failed to set executable permissions: {}", e))?;
 
     println!("✓ Binary installed to {}", target_path.display());
 
@@ -69,20 +69,22 @@ async fn install_launchd_service() -> Result<()> {
     let exe_path = target_path;
 
     // Ensure LaunchAgents directory exists
-    fs::create_dir_all(&launch_agents_dir).context("Failed to create LaunchAgents directory")?;
+    std::fs::create_dir_all(&launch_agents_dir)
+        .map_err(|e| anyhow::anyhow!("Failed to create LaunchAgents directory: {}", e))?;
 
     // Generate plist content
     let plist_content = generate_plist(&exe_path, &vault_path)?;
 
     // Write plist file
-    fs::write(&plist_path, plist_content).context("Failed to write plist file")?;
+    std::fs::write(&plist_path, plist_content)
+        .map_err(|e| anyhow::anyhow!("Failed to write plist file: {}", e))?;
 
     // Load the service
     let output = std::process::Command::new("launchctl")
         .arg("load")
         .arg(&plist_path)
         .output()
-        .context("Failed to load launchd service")?;
+        .map_err(|e| anyhow::anyhow!("Failed to load launchd service: {}", e))?;
 
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
@@ -106,7 +108,7 @@ async fn install_launchd_service() -> Result<()> {
 }
 
 #[cfg(target_os = "macos")]
-fn generate_plist(exe_path: &PathBuf, vault_path: &PathBuf) -> Result<String> {
+fn generate_plist(exe_path: &std::path::Path, vault_path: &std::path::Path) -> Result<String> {
     let log_file = vault_path.join("service.log");
     let err_file = vault_path.join("service.err");
 

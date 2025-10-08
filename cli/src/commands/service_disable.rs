@@ -1,5 +1,4 @@
-use anyhow::{Context, Result};
-use std::fs;
+use anyhow::Result;
 
 pub async fn execute() -> Result<()> {
     #[cfg(target_os = "macos")]
@@ -35,7 +34,7 @@ async fn uninstall_launchd_service() -> Result<()> {
         .arg("unload")
         .arg(&plist_path)
         .output()
-        .context("Failed to unload launchd service")?;
+        .map_err(|e| anyhow::anyhow!("Failed to unload launchd service: {}", e))?;
 
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
@@ -43,7 +42,8 @@ async fn uninstall_launchd_service() -> Result<()> {
     }
 
     // Remove plist file
-    fs::remove_file(&plist_path).context("Failed to remove plist file")?;
+    std::fs::remove_file(&plist_path)
+        .map_err(|e| anyhow::anyhow!("Failed to remove plist file: {}", e))?;
 
     // Remove binary from /usr/local/bin
     let binary_path = "/usr/local/bin/securefox";
