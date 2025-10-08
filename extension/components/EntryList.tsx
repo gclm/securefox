@@ -141,7 +141,6 @@ export const EntryList: React.FC<EntryListProps> = ({ view }) => {
       <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-50 dark:bg-gray-900">
         <div className="relative mb-6">
           <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center shadow-2xl">
-            {view === 'favorites' && <Star className="w-12 h-12 text-yellow-500" />}
             {view === 'recent' && <Clock className="w-12 h-12 text-purple-500" />}
             {view === 'current' && <Globe className="w-12 h-12 text-green-500" />}
             {view === 'list' && <Key className="w-12 h-12 text-blue-500" />}
@@ -151,13 +150,11 @@ export const EntryList: React.FC<EntryListProps> = ({ view }) => {
           </div>
         </div>
         <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">
-          {view === 'favorites' && '没有收藏的项目'}
           {view === 'recent' && '没有最近使用的项目'}
           {view === 'current' && '当前网站无匹配项'}
           {view === 'list' && '开始使用 SecureFox'}
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-xs">
-          {view === 'favorites' && '将重要的密码标记为收藏，便于快速访问'}
           {view === 'recent' && '您最近使用的密码将自动显示在这里'}
           {view === 'current' && '该网站还没有保存的登录信息'}
           {view === 'list' && '添加您的第一个密码，开始安全的密码管理之旅'}

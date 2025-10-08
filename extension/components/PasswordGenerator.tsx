@@ -17,7 +17,15 @@ export const PasswordGenerator: React.FC<PasswordGeneratorProps> = ({ onUsePassw
   const { showNotification } = useUIStore();
   const [password, setPassword] = useState('');
   const [copied, setCopied] = useState(false);
-  const [options, setOptions] = useState({
+  type PasswordOptions = {
+    length: number;
+    useUppercase: boolean;
+    useLowercase: boolean;
+    useNumbers: boolean;
+    useSymbols: boolean;
+  };
+
+  const [options, setOptions] = useState<PasswordOptions>({
     length: PASSWORD_DEFAULTS.LENGTH,
     useUppercase: PASSWORD_DEFAULTS.USE_UPPERCASE,
     useLowercase: PASSWORD_DEFAULTS.USE_LOWERCASE,

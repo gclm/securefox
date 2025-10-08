@@ -59,7 +59,8 @@ apiClient.interceptors.response.use(
     }
     
     // Format error message
-    const message = error.response?.data?.message || 
+    const errorData = error.response?.data as { message?: string } | undefined;
+    const message = errorData?.message || 
                    error.message || 
                    'An unexpected error occurred';
     
