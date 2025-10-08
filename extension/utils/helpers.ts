@@ -13,28 +13,73 @@ export function getDomainFromUrl(url: string): string {
 }
 
 /**
+ * Check if hostname is localhost or IP address
+ */
+export function isLocalhostOrIP(hostname: string): boolean {
+  // Check for localhost variants
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+    return true;
+  }
+  
+  // Check for other local IPs (192.168.x.x, 10.x.x.x, etc.)
+  if (/^(10|172\.(1[6-9]|2[0-9]|3[0-1])|192\.168)\./. test(hostname)) {
+    return true;
+  }
+  
+  // Check for IPv4 pattern
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Get recommended match type for a URL (used as default when saving)
+ */
+export function getRecommendedMatchType(uri: string): UriMatchType {
+  try {
+    const url = new URL(uri);
+    // For localhost or IP addresses, recommend Host matching (includes port)
+    if (isLocalhostOrIP(url.hostname)) {
+      return UriMatchType.Host;
+    }
+    // For regular domains, recommend Domain matching
+    return UriMatchType.Domain;
+  } catch {
+    return UriMatchType.Domain;
+  }
+}
+
+/**
  * Match URL against item URIs
  */
 export function matchUri(itemUri: string, currentUri: string, matchType: UriMatchType = UriMatchType.Domain): boolean {
-  switch (matchType) {
-    case UriMatchType.Domain:
-      return getDomainFromUrl(itemUri) === getDomainFromUrl(currentUri);
-    case UriMatchType.Host:
-      return new URL(itemUri).host === new URL(currentUri).host;
-    case UriMatchType.StartsWith:
-      return currentUri.startsWith(itemUri);
-    case UriMatchType.Exact:
-      return itemUri === currentUri;
-    case UriMatchType.RegularExpression:
-      try {
-        return new RegExp(itemUri).test(currentUri);
-      } catch {
+  try {
+    switch (matchType) {
+      case UriMatchType.Domain:
+        return getDomainFromUrl(itemUri) === getDomainFromUrl(currentUri);
+      case UriMatchType.Host:
+        // Host includes hostname + port
+        return new URL(itemUri).host === new URL(currentUri).host;
+      case UriMatchType.StartsWith:
+        return currentUri.startsWith(itemUri);
+      case UriMatchType.Exact:
+        return itemUri === currentUri;
+      case UriMatchType.RegularExpression:
+        try {
+          return new RegExp(itemUri).test(currentUri);
+        } catch {
+          return false;
+        }
+      case UriMatchType.Never:
         return false;
-      }
-    case UriMatchType.Never:
-      return false;
-    default:
-      return false;
+      default:
+        return false;
+    }
+  } catch (error) {
+    console.error('Error matching URI:', error);
+    return false;
   }
 }
 
@@ -47,9 +92,20 @@ export function findMatchingItems(items: Item[], url: string): Item[] {
       return false;
     }
     
-    return item.login.uris.some(uri => 
-      matchUri(uri.uri, url, uri.match ?? UriMatchType.Domain)
-    );
+    // Check if any URI matches
+    return item.login.uris.some(uri => {
+      // Smart fallback for old data without match type:
+      // - If match type is specified, use it
+      // - If not specified, use recommended type based on URI
+      let matchType = uri.match;
+      
+      if (matchType === undefined || matchType === null) {
+        // Old data without match type - use smart fallback
+        matchType = getRecommendedMatchType(uri.uri);
+      }
+      
+      return matchUri(uri.uri, url, matchType);
+    });
   });
 }
 

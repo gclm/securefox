@@ -373,6 +373,235 @@ export default defineContentScript({
       }
     };
 
+    // Track submitted credentials for save prompt
+    let pendingSaveCredentials: { username: string; password: string; url: string } | null = null;
+
+    // Monitor form submissions to prompt password save
+    const handleFormSubmit = async (event: Event) => {
+      const target = event.target as HTMLElement;
+      
+      // Try to find the form
+      let form: HTMLFormElement | null = null;
+      if (target instanceof HTMLFormElement) {
+        form = target;
+      } else {
+        form = target.closest('form');
+      }
+      
+      if (!form) {
+        console.log('SecureFox: No form found on submit');
+        return;
+      }
+
+      console.log('SecureFox: Form submitted, checking for credentials...');
+
+      // Find password field in the form
+      const passwordField = form.querySelector<HTMLInputElement>('input[type="password"]');
+      if (!passwordField) {
+        console.log('SecureFox: No password field found in form');
+        return;
+      }
+      
+      if (!passwordField.value) {
+        console.log('SecureFox: Password field is empty');
+        return;
+      }
+
+      // Find username field
+      const usernameField = detectUsernameField(passwordField);
+      const username = usernameField?.value || '';
+      const password = passwordField.value;
+
+      console.log('SecureFox: Found credentials', { username, hasPassword: !!password });
+
+      if (!username) {
+        console.log('SecureFox: Username field is empty');
+        return;
+      }
+      
+      if (!password) {
+        console.log('SecureFox: Password is empty');
+        return;
+      }
+
+      // Store credentials for potential save
+      pendingSaveCredentials = {
+        username,
+        password,
+        url: window.location.href
+      };
+
+      console.log('SecureFox: Waiting to prompt save...');
+
+      // Wait a moment to see if login succeeds (form doesn't reload/redirect means likely success)
+      setTimeout(async () => {
+        if (pendingSaveCredentials) {
+          console.log('SecureFox: Prompting to save password');
+          await promptSavePassword(pendingSaveCredentials);
+        }
+      }, 500);
+    };
+
+    // Prompt user to save password
+    const promptSavePassword = async (credentials: { username: string; password: string; url: string }) => {
+      try {
+        // Check if this credential already exists
+        const response = await chrome.runtime.sendMessage({
+          type: 'CHECK_CREDENTIAL_EXISTS',
+          username: credentials.username,
+          url: credentials.url
+        });
+
+        if (response.exists) {
+          // Check if password is different
+          if (response.passwordMatch) {
+            // Same credentials, no need to save
+            pendingSaveCredentials = null;
+            return;
+          } else {
+            // Same username but different password - prompt update
+            showSavePrompt(credentials, true);
+          }
+        } else {
+          // New credentials - prompt save
+          showSavePrompt(credentials, false);
+        }
+      } catch (error) {
+        console.error('Failed to check credential:', error);
+      }
+    };
+
+    // Show save/update password prompt
+    const showSavePrompt = (credentials: { username: string; password: string; url: string }, isUpdate: boolean) => {
+      // Remove any existing prompt
+      const existingPrompt = document.querySelector('[data-securefox-save-prompt]');
+      if (existingPrompt) {
+        existingPrompt.remove();
+      }
+
+      // Create save prompt
+      const prompt = document.createElement('div');
+      prompt.setAttribute('data-securefox-save-prompt', 'true');
+      prompt.style.cssText = `
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 999999;
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        min-width: 320px;
+        max-width: 400px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        animation: slideInRight 0.3s ease;
+      `;
+
+      const hostname = new URL(credentials.url).hostname;
+
+      prompt.innerHTML = `
+        <style>
+          @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+          }
+        </style>
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+          <div style="flex-shrink: 0; width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2C9.243 2 7 4.243 7 7V10H6C4.895 10 4 10.895 4 12V20C4 21.105 4.895 22 6 22H18C19.105 22 20 21.105 20 20V12C20 10.895 19.105 10 18 10H17V7C17 4.243 14.757 2 12 2ZM9 7C9 5.346 10.346 4 12 4C13.654 4 15 5.346 15 7V10H9V7Z" fill="white"/>
+            </svg>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; color: #1e293b; font-size: 15px; margin-bottom: 4px;">
+              ${isUpdate ? '更新密码？' : '保存密码？'}
+            </div>
+            <div style="color: #64748b; font-size: 13px; word-break: break-all;">
+              ${hostname}
+            </div>
+            <div style="color: #94a3b8; font-size: 12px; margin-top: 4px;">
+              ${credentials.username}
+            </div>
+          </div>
+          <button id="sf-close-prompt" style="flex-shrink: 0; width: 24px; height: 24px; border: none; background: transparent; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #94a3b8; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="sf-save-btn" style="flex: 1; padding: 10px 16px; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">
+            ${isUpdate ? '更新' : '保存'}
+          </button>
+          <button id="sf-never-btn" style="flex: 1; padding: 10px 16px; border: 1px solid #e5e5e5; background: white; color: #64748b; font-size: 14px; font-weight: 500; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+            从不
+          </button>
+        </div>
+      `;
+
+      document.body.appendChild(prompt);
+
+      // Handle save button
+      prompt.querySelector('#sf-save-btn')?.addEventListener('click', async () => {
+        try {
+          const siteName = hostname.split('.').slice(-2, -1)[0] || hostname;
+          
+          // Import match type helper
+          const { getRecommendedMatchType } = await import('@/utils/helpers');
+          const recommendedMatch = getRecommendedMatchType(credentials.url);
+          
+          const result = await chrome.runtime.sendMessage({
+            type: MESSAGE_TYPES.SAVE_CREDENTIALS,
+            data: {
+              name: siteName.charAt(0).toUpperCase() + siteName.slice(1),
+              type: 1, // Login type
+              login: {
+                username: credentials.username,
+                password: credentials.password,
+                uris: [{ 
+                  uri: credentials.url,
+                  match: recommendedMatch  // Set recommended match type
+                }]
+              }
+            }
+          });
+
+          if (result.success) {
+            showNotification(isUpdate ? '密码已更新' : '密码已保存', 'success');
+            prompt.remove();
+            pendingSaveCredentials = null;
+          } else {
+            showNotification('保存失败', 'error');
+          }
+        } catch (error) {
+          console.error('Failed to save credential:', error);
+          showNotification('保存失败', 'error');
+        }
+      });
+
+      // Handle never button
+      prompt.querySelector('#sf-never-btn')?.addEventListener('click', () => {
+        // TODO: Add to never save list
+        prompt.remove();
+        pendingSaveCredentials = null;
+      });
+
+      // Handle close button
+      prompt.querySelector('#sf-close-prompt')?.addEventListener('click', () => {
+        prompt.remove();
+        pendingSaveCredentials = null;
+      });
+
+      // Auto dismiss after 30 seconds
+      setTimeout(() => {
+        if (prompt.parentNode) {
+          prompt.remove();
+          pendingSaveCredentials = null;
+        }
+      }, 30000);
+    };
+
     // Initialize inline autofill system
     const initialize = () => {
       // Detect and process login fields
@@ -390,6 +619,7 @@ export default defineContentScript({
       document.addEventListener('focusin', handleFocus, true);
       document.addEventListener('focusout', handleBlur, true);
       document.addEventListener('keydown', handleKeyboardShortcut, true);
+      document.addEventListener('submit', handleFormSubmit, true);
       
       // Initial badge update
       updateBadge();
