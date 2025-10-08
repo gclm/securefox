@@ -444,31 +444,8 @@ export default defineContentScript({
 
     // Prompt user to save password
     const promptSavePassword = async (credentials: { username: string; password: string; url: string }) => {
-      try {
-        // Check if this credential already exists
-        const response = await chrome.runtime.sendMessage({
-          type: 'CHECK_CREDENTIAL_EXISTS',
-          username: credentials.username,
-          url: credentials.url
-        });
-
-        if (response.exists) {
-          // Check if password is different
-          if (response.passwordMatch) {
-            // Same credentials, no need to save
-            pendingSaveCredentials = null;
-            return;
-          } else {
-            // Same username but different password - prompt update
-            showSavePrompt(credentials, true);
-          }
-        } else {
-          // New credentials - prompt save
-          showSavePrompt(credentials, false);
-        }
-      } catch (error) {
-        console.error('Failed to check credential:', error);
-      }
+      // Backend will handle duplicate detection, just show the prompt
+      showSavePrompt(credentials, false);
     };
 
     // Show save/update password prompt

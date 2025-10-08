@@ -161,40 +161,12 @@ export default defineBackground(() => {
             break;
 
           case MESSAGE_TYPES.SAVE_CREDENTIALS:
-            // Save new credentials
+            // Save new credentials (backend handles deduplication)
             try {
               const newEntry = await entriesApi.createEntry(message.data);
               sendResponse({ success: true, entry: newEntry });
             } catch (error: any) {
               sendResponse({ success: false, error: error.message });
-            }
-            break;
-
-          case 'CHECK_CREDENTIAL_EXISTS':
-            // Check if credential already exists
-            try {
-              const allEntries = await entriesApi.getEntries();
-              const matchingEntries = findMatchingItems(allEntries, message.url);
-              
-              // Check for exact username match
-              const existingEntry = matchingEntries.find(
-                entry => entry.login?.username === message.username
-              );
-              
-              if (existingEntry) {
-                // Check if password matches
-                const passwordMatch = existingEntry.login?.password === message.password;
-                sendResponse({ 
-                  exists: true, 
-                  passwordMatch,
-                  entryId: existingEntry.id 
-                });
-              } else {
-                sendResponse({ exists: false });
-              }
-            } catch (error: any) {
-              console.error('Failed to check credential:', error);
-              sendResponse({ exists: false, error: error.message });
             }
             break;
 

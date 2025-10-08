@@ -83,9 +83,78 @@ pub mod items_impl {
         Extension(session): Extension<Session>,
         Json(req): Json<CreateItemRequest>,
     ) -> Result<Json<Item>> {
-        let now = Utc::now();
+        // Validate required fields
+        if req.name.trim().is_empty() {
+            return Err(ApiError::BadRequest("Item name is required".to_string()));
+        }
         
-        // Build complete Item with generated ID and timestamps
+        // For login items, validate username and at least one URI
+        if req.item_type == securefox_core::models::ItemType::LOGIN {
+            if let Some(ref login) = req.login {
+                if login.username.is_none() || login.username.as_ref().map(|u| u.trim().is_empty()).unwrap_or(true) {
+                    return Err(ApiError::BadRequest("Username is required for login items".to_string()));
+                }
+                if login.uris.is_none() || login.uris.as_ref().map(|u| u.is_empty()).unwrap_or(true) {
+                    return Err(ApiError::BadRequest("At least one URI is required for login items".to_string()));
+                }
+            } else {
+                return Err(ApiError::BadRequest("Login data is required for login items".to_string()));
+            }
+        }
+        
+        // Check for duplicate credentials (URI + username + password)
+        let vault = state.get_vault().ok_or(ApiError::VaultLocked)?;
+        
+        if req.item_type == securefox_core::models::ItemType::LOGIN {
+            if let Some(ref req_login) = req.login {
+                // Extract request username and password for comparison
+                let req_username = req_login.username.as_ref().map(|s| s.as_str());
+                let req_password = req_login.password.as_ref().map(|s| s.as_str());
+                let req_uris = req_login.uris.as_ref();
+                
+                // Check each existing item for duplicates
+                for existing_item in &vault.items {
+                    if existing_item.item_type != securefox_core::models::ItemType::LOGIN {
+                        continue;
+                    }
+                    
+                    if let Some(ref existing_login) = existing_item.login {
+                        // Check if username matches
+                        if existing_login.username.as_ref().map(|s| s.as_str()) != req_username {
+                            continue;
+                        }
+                        
+                        // Check if any URI matches
+                        let has_matching_uri = match (req_uris, &existing_login.uris) {
+                            (Some(req_uris), Some(existing_uris)) => {
+                                req_uris.iter().any(|req_uri| {
+                                    existing_uris.iter().any(|existing_uri| {
+                                        req_uri.uri == existing_uri.uri
+                                    })
+                                })
+                            },
+                            _ => false,
+                        };
+                        
+                        if !has_matching_uri {
+                            continue;
+                        }
+                        
+                        // Found matching URI + username
+                        // Check if password also matches
+                        if existing_login.password.as_ref().map(|s| s.as_str()) == req_password {
+                            // Complete duplicate - return existing item without saving
+                            return Ok(Json(existing_item.clone()));
+                        }
+                        // If password is different, we'll create a new item (not update)
+                        // This allows users to have multiple passwords for the same site
+                    }
+                }
+            }
+        }
+        
+        // No duplicate found - create new item
+        let now = Utc::now();
         let item = Item {
             id: Uuid::new_v4().to_string(),
             item_type: req.item_type,
