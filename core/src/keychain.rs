@@ -35,7 +35,7 @@ impl Keychain {
 
         // Convert key to base64 for storage
         let encoded = base64::encode(key);
-        
+
         entry
             .set_password(&encoded)
             .map_err(|e| Error::Keychain(format!("Failed to store key: {}", e)))?;

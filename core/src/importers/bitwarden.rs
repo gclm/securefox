@@ -127,7 +127,7 @@ impl BitwardenImporter {
 
     fn convert_item(item: &BitwardenItem) -> Result<Item> {
         let now = Utc::now();
-        
+
         let creation_date = item
             .creation_date
             .as_ref()
@@ -253,10 +253,7 @@ impl Importer for BitwardenImporter {
 
         // Import folders
         if let Some(folders) = export.folders {
-            vault.folders = folders
-                .iter()
-                .map(Self::convert_folder)
-                .collect();
+            vault.folders = folders.iter().map(Self::convert_folder).collect();
         }
 
         // Import items
@@ -329,7 +326,7 @@ impl Exporter for BitwardenExporter {
                 }
 
                 // Convert other types similarly...
-                
+
                 bw_item
             })
             .collect();

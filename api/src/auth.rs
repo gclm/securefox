@@ -27,9 +27,7 @@ pub async fn auth_middleware(
         .ok_or(ApiError::Unauthorized)?;
 
     // Validate session
-    let session = state
-        .get_session(token)
-        .ok_or(ApiError::SessionExpired)?;
+    let session = state.get_session(token).ok_or(ApiError::SessionExpired)?;
 
     // Store session in request extensions for handlers
     request.extensions_mut().insert(session);

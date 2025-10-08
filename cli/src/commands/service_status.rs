@@ -6,30 +6,28 @@ pub async fn execute() -> Result<()> {
     let vault_path = dirs::home_dir()
         .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?
         .join(".securefox");
-    
+
     let pid_file = vault_path.join("service.pid");
-    
+
     println!("{}", "Service Status".bold());
     println!("───────────────────────────────────");
-    
+
     if !pid_file.exists() {
         println!("Status: {}", "Not running".yellow());
         return Ok(());
     }
-    
-    let pid_str = fs::read_to_string(&pid_file)
-        .context("Failed to read PID file")?;
-    let pid: u32 = pid_str.trim().parse()
-        .context("Invalid PID in file")?;
-    
+
+    let pid_str = fs::read_to_string(&pid_file).context("Failed to read PID file")?;
+    let pid: u32 = pid_str.trim().parse().context("Invalid PID in file")?;
+
     // Check if process is running
     let is_running = check_process_running(pid);
-    
+
     if is_running {
         println!("Status: {}", "Running".green());
         println!("PID: {}", pid);
         println!("API: http://127.0.0.1:8787");
-        
+
         // Try to get process info
         #[cfg(target_os = "macos")]
         {
@@ -54,7 +52,7 @@ pub async fn execute() -> Result<()> {
         println!("Status: {}", "Stopped (stale PID file)".yellow());
         println!("PID file exists but process is not running");
     }
-    
+
     Ok(())
 }
 
@@ -69,7 +67,7 @@ fn check_process_running(pid: u32) -> bool {
             .map(|output| output.status.success())
             .unwrap_or(false)
     }
-    
+
     #[cfg(not(unix))]
     {
         false

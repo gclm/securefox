@@ -9,7 +9,7 @@ pub async fn execute(
 ) -> Result<()> {
     println!("Restarting SecureFox service...");
     println!();
-    
+
     // Try to stop the service (ignore errors if not running)
     println!("Stopping service...");
     match crate::commands::service_stop::execute().await {
@@ -20,15 +20,15 @@ pub async fn execute(
             println!("⚠ Stop failed: {} (continuing anyway)", e);
         }
     }
-    
+
     println!();
-    
+
     // Wait a moment for cleanup
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    
+
     // Start the service with new parameters
     println!("Starting service...");
     crate::commands::service_start::execute(vault_path, host, port, timeout).await?;
-    
+
     Ok(())
 }

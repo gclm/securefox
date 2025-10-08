@@ -1,11 +1,6 @@
 use parking_lot::RwLock;
 use securefox_core::{models::Vault, storage::VaultStorage};
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 
 use crate::models::Session;
 
@@ -29,20 +24,20 @@ impl AppState {
 
     pub fn unlock(&self, password: String) -> crate::Result<Session> {
         let storage = VaultStorage::with_path(self.vault_path.join("vault.sf"));
-        
+
         // Load and decrypt vault
         let vault = storage.load(&password)?;
-        
+
         // Store vault in memory
         *self.vault.write() = Some(vault);
-        
+
         // Create session
         let session = Session::new(password, self.unlock_timeout);
         let token = session.id.clone();
-        
+
         // Store session
         self.sessions.write().insert(token.clone(), session.clone());
-        
+
         Ok(session)
     }
 
@@ -50,20 +45,20 @@ impl AppState {
         if let Some(token) = token {
             self.sessions.write().remove(token);
         }
-        
+
         // Clear vault from memory
         *self.vault.write() = None;
     }
 
     pub fn get_session(&self, token: &str) -> Option<Session> {
         let mut sessions = self.sessions.write();
-        
+
         if let Some(session) = sessions.get_mut(token) {
             if session.is_expired() {
                 sessions.remove(token);
                 return None;
             }
-            
+
             // Refresh session on access
             session.refresh(self.unlock_timeout);
             Some(session.clone())
@@ -84,21 +79,20 @@ impl AppState {
     where
         F: FnOnce(&mut Vault) -> crate::Result<()>,
     {
-        let session = self.get_session(token)
+        let session = self
+            .get_session(token)
             .ok_or(crate::ApiError::SessionExpired)?;
-        
+
         let mut vault_guard = self.vault.write();
-        let vault = vault_guard
-            .as_mut()
-            .ok_or(crate::ApiError::VaultLocked)?;
-        
+        let vault = vault_guard.as_mut().ok_or(crate::ApiError::VaultLocked)?;
+
         // Apply the update
         f(vault)?;
-        
+
         // Save to disk
         let storage = VaultStorage::with_path(self.vault_path.join("vault.sf"));
         storage.save(vault, &session.master_password)?;
-        
+
         // Git sync if configured
         #[cfg(feature = "git")]
         {
@@ -107,7 +101,7 @@ impl AppState {
                 let _ = sync.auto_commit_push("API vault update");
             }
         }
-        
+
         Ok(())
     }
 

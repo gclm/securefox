@@ -9,7 +9,7 @@ use argon2::{
     Argon2, Params, Version,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use pbkdf2::{pbkdf2_hmac_array};
+use pbkdf2::pbkdf2_hmac_array;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
@@ -89,7 +89,7 @@ impl Default for KdfParams {
         // Generate random salt bytes and encode as base64
         let mut salt_bytes = [0u8; 16];
         OsRng.fill_bytes(&mut salt_bytes);
-        
+
         Self {
             algorithm: KdfAlgorithm::Pbkdf2,
             salt: BASE64.encode(&salt_bytes),
@@ -111,7 +111,7 @@ impl KdfParams {
             parallelism: Some(ARGON2_PARALLELISM),
         }
     }
-    
+
     /// Create PBKDF2 params
     pub fn pbkdf2() -> Self {
         Self::default()
@@ -132,7 +132,7 @@ pub fn derive_key(password: &str, params: &KdfParams) -> Result<EncryptionKey> {
         KdfAlgorithm::Argon2id => {
             let memory_kb = params.memory_kb.unwrap_or(ARGON2_MEMORY_KB);
             let parallelism = params.parallelism.unwrap_or(ARGON2_PARALLELISM);
-            
+
             let argon2_params = Params::new(
                 memory_kb * 1024,
                 params.iterations,
@@ -141,11 +141,7 @@ pub fn derive_key(password: &str, params: &KdfParams) -> Result<EncryptionKey> {
             )
             .map_err(|e| Error::Encryption(format!("Invalid Argon2 params: {}", e)))?;
 
-            let argon2 = Argon2::new(
-                argon2::Algorithm::Argon2id,
-                Version::V0x13,
-                argon2_params,
-            );
+            let argon2 = Argon2::new(argon2::Algorithm::Argon2id, Version::V0x13, argon2_params);
 
             let salt = SaltString::from_b64(&params.salt)
                 .map_err(|e| Error::Encryption(format!("Invalid salt: {}", e)))?;
@@ -164,14 +160,14 @@ pub fn derive_key(password: &str, params: &KdfParams) -> Result<EncryptionKey> {
             let salt_bytes = BASE64
                 .decode(&params.salt)
                 .map_err(|e| Error::Encryption(format!("Invalid salt: {}", e)))?;
-            
+
             // Derive key using PBKDF2-HMAC-SHA256
             let key = pbkdf2_hmac_array::<Sha256, KEY_SIZE>(
                 password.as_bytes(),
                 &salt_bytes,
                 params.iterations,
             );
-            
+
             Ok(EncryptionKey { key })
         }
     }
@@ -190,7 +186,7 @@ pub fn encrypt(plaintext: &[u8], key: &EncryptionKey) -> Result<EncryptedData> {
         .map_err(|e| Error::Encryption(format!("Cipher creation failed: {}", e)))?;
 
     let nonce = Aes256GcmSiv::generate_nonce(&mut OsRng);
-    
+
     let ciphertext = cipher
         .encrypt(&nonce, plaintext)
         .map_err(|e| Error::Encryption(format!("Encryption failed: {}", e)))?;
@@ -210,9 +206,9 @@ pub fn encrypt_with_password(plaintext: &[u8], password: &str) -> Result<Encrypt
 
 /// Encrypt data with a password using specified KDF params
 pub fn encrypt_with_password_and_kdf(
-    plaintext: &[u8], 
-    password: &str, 
-    kdf_params: KdfParams
+    plaintext: &[u8],
+    password: &str,
+    kdf_params: KdfParams,
 ) -> Result<EncryptedData> {
     let key = derive_key(password, &kdf_params)?;
 
@@ -220,7 +216,7 @@ pub fn encrypt_with_password_and_kdf(
         .map_err(|e| Error::Encryption(format!("Cipher creation failed: {}", e)))?;
 
     let nonce = Aes256GcmSiv::generate_nonce(&mut OsRng);
-    
+
     let ciphertext = cipher
         .encrypt(&nonce, plaintext)
         .map_err(|e| Error::Encryption(format!("Encryption failed: {}", e)))?;
@@ -317,7 +313,7 @@ mod tests {
         let mut key = generate_key();
         let key_bytes = key.as_bytes().to_vec();
         assert!(!key_bytes.iter().all(|&b| b == 0));
-        
+
         key.zeroize();
         assert!(key.as_bytes().iter().all(|&b| b == 0));
     }

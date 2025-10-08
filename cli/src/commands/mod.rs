@@ -16,16 +16,16 @@ pub mod unlock;
 
 // Sync subcommands
 pub mod sync_config;
-pub mod sync_status;
-pub mod sync_enable;
 pub mod sync_disable;
+pub mod sync_enable;
 pub mod sync_show;
+pub mod sync_status;
 
 // Service commands
-pub mod service_start;
-pub mod service_stop;
-pub mod service_restart;
-pub mod service_status;
-pub mod service_enable;
 pub mod service_disable;
+pub mod service_enable;
+pub mod service_restart;
 pub mod service_run;
+pub mod service_start;
+pub mod service_status;
+pub mod service_stop;

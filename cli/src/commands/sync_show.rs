@@ -1,35 +1,38 @@
 use anyhow::{Context, Result};
-use securefox_core::VaultStorage;
-use securefox_core::models::SyncMode;
-use std::path::PathBuf;
 use dialoguer::Password;
+use securefox_core::models::SyncMode;
+use securefox_core::VaultStorage;
+use std::path::PathBuf;
 
 pub async fn execute(vault_path: Option<PathBuf>) -> Result<()> {
-    let vault_path = vault_path
-        .ok_or_else(|| anyhow::anyhow!("Vault path not specified"))?;
-    
+    let vault_path = vault_path.ok_or_else(|| anyhow::anyhow!("Vault path not specified"))?;
+
     let storage = VaultStorage::with_path(vault_path.join("vault.sf"));
-    
+
     if !storage.exists() {
         anyhow::bail!("Vault not found. Please initialize a vault first.");
     }
-    
+
     // Get password to unlock vault
-    let password = Password::new()
-        .with_prompt("Master password")
-        .interact()?;
-    
+    let password = Password::new().with_prompt("Master password").interact()?;
+
     // Load vault
-    let vault = storage.load(&password)
-        .context("Failed to unlock vault")?;
-    
+    let vault = storage.load(&password).context("Failed to unlock vault")?;
+
     // Display sync configuration
     println!("Auto-Sync Configuration");
     println!("─────────────────────────");
-    
+
     if let Some(config) = &vault.sync_config {
-        println!("Status: {}", if config.enabled { "Enabled" } else { "Disabled" });
-        
+        println!(
+            "Status: {}",
+            if config.enabled {
+                "Enabled"
+            } else {
+                "Disabled"
+            }
+        );
+
         match &config.mode {
             SyncMode::Manual => {
                 println!("Mode:   Manual");
@@ -54,6 +57,6 @@ pub async fn execute(vault_path: Option<PathBuf>) -> Result<()> {
         println!("Status: Not configured");
         println!("Mode:   Manual (default)");
     }
-    
+
     Ok(())
 }

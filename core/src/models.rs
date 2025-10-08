@@ -100,7 +100,7 @@ pub struct Item {
     pub favorite: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
-    
+
     // Type-specific fields
     #[serde(skip_serializing_if = "Option::is_none")]
     pub login: Option<LoginData>,
@@ -110,11 +110,11 @@ pub struct Item {
     pub identity: Option<IdentityData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secure_note: Option<SecureNoteData>,
-    
+
     // Custom fields
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fields: Option<Vec<CustomField>>,
-    
+
     // Metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reprompt: Option<u8>,
@@ -155,8 +155,8 @@ impl Item {
             login: None,
             card: None,
             identity: None,
-            secure_note: Some(SecureNoteData { 
-                type_: SecureNoteType::GENERIC
+            secure_note: Some(SecureNoteData {
+                type_: SecureNoteType::GENERIC,
             }),
             fields: None,
             reprompt: None,
@@ -175,7 +175,7 @@ pub struct LoginData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub totp: Option<String>,  // otpauth://totp/... format
+    pub totp: Option<String>, // otpauth://totp/... format
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uris: Option<Vec<LoginUri>>,
 }
@@ -312,28 +312,28 @@ impl SyncConfig {
             mode: SyncMode::Manual,
         }
     }
-    
+
     pub fn manual() -> Self {
         Self {
             enabled: true,
             mode: SyncMode::Manual,
         }
     }
-    
+
     pub fn auto_pull(interval_seconds: u64) -> Self {
         Self {
             enabled: true,
             mode: SyncMode::AutoPull { interval_seconds },
         }
     }
-    
+
     pub fn push_on_change() -> Self {
         Self {
             enabled: true,
             mode: SyncMode::PushOnChange,
         }
     }
-    
+
     pub fn full(interval_seconds: u64) -> Self {
         Self {
             enabled: true,
@@ -354,16 +354,16 @@ impl Default for SyncConfig {
 pub enum SyncMode {
     /// Manual synchronization only
     Manual,
-    
+
     /// Automatically pull from remote at regular intervals
     AutoPull {
         #[serde(rename = "intervalSeconds")]
         interval_seconds: u64,
     },
-    
+
     /// Push to remote immediately when vault data changes
     PushOnChange,
-    
+
     /// Full bidirectional sync at regular intervals
     Full {
         #[serde(rename = "intervalSeconds")]
@@ -375,11 +375,11 @@ impl SyncMode {
     pub fn is_auto_pull(&self) -> bool {
         matches!(self, SyncMode::AutoPull { .. } | SyncMode::Full { .. })
     }
-    
+
     pub fn is_push_on_change(&self) -> bool {
         matches!(self, SyncMode::PushOnChange | SyncMode::Full { .. })
     }
-    
+
     pub fn interval_seconds(&self) -> Option<u64> {
         match self {
             SyncMode::AutoPull { interval_seconds } | SyncMode::Full { interval_seconds } => {
@@ -422,7 +422,7 @@ mod tests {
 
         let json = serde_json::to_string_pretty(&vault).unwrap();
         let deserialized: Vault = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.items.len(), 1);
         assert_eq!(deserialized.items[0].name, "GitHub");
     }

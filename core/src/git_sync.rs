@@ -21,7 +21,7 @@ impl GitSync {
     /// Initialize or open a git repository
     pub fn init<P: AsRef<Path>>(path: P) -> Result<Self> {
         let repo_path = path.as_ref().to_path_buf();
-        
+
         let repo = if repo_path.join(".git").exists() {
             Repository::open(&repo_path)?
         } else {
@@ -62,7 +62,7 @@ impl GitSync {
     /// Auto commit changes
     pub fn auto_commit(&self, message: &str) -> Result<()> {
         let mut index = self.repo.index()?;
-        
+
         // Add all changes to index
         index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
         index.write()?;
@@ -86,7 +86,7 @@ impl GitSync {
                 // No changes
                 return Ok(());
             }
-            
+
             self.repo.commit(
                 Some("HEAD"),
                 &signature,
@@ -97,14 +97,8 @@ impl GitSync {
             )?;
         } else {
             // Initial commit
-            self.repo.commit(
-                Some("HEAD"),
-                &signature,
-                &signature,
-                message,
-                &tree,
-                &[],
-            )?;
+            self.repo
+                .commit(Some("HEAD"), &signature, &signature, message, &tree, &[])?;
         }
 
         Ok(())
@@ -117,34 +111,36 @@ impl GitSync {
             // No commits yet, create an initial commit
             self.auto_commit("Initial commit")?;
         }
-        
+
         // Rename branch to configured name if needed
         if let Ok(head) = self.repo.head() {
             if let Some(branch_name) = head.shorthand() {
                 if branch_name != self.branch_name {
                     // Rename current branch to configured name
-                    let mut branch = self.repo.find_branch(branch_name, git2::BranchType::Local)?;
+                    let mut branch = self
+                        .repo
+                        .find_branch(branch_name, git2::BranchType::Local)?;
                     branch.rename(&self.branch_name, false)?;
                 }
             }
         }
-        
+
         let mut remote = self.repo.find_remote(&self.remote_name)?;
-        
+
         let mut callbacks = RemoteCallbacks::new();
-        callbacks.credentials(|_url, username, cred_type| {
-            self.get_credentials(username, cred_type)
-        });
-        
+        callbacks
+            .credentials(|_url, username, cred_type| self.get_credentials(username, cred_type));
+
         // Accept unknown SSH host keys (for development)
-        callbacks.certificate_check(|_cert, _host| {
-            Ok(git2::CertificateCheckStatus::CertificateOk)
-        });
+        callbacks.certificate_check(|_cert, _host| Ok(git2::CertificateCheckStatus::CertificateOk));
 
         let mut push_options = PushOptions::new();
         push_options.remote_callbacks(callbacks);
 
-        let refspec = format!("refs/heads/{}:refs/heads/{}", self.branch_name, self.branch_name);
+        let refspec = format!(
+            "refs/heads/{}:refs/heads/{}",
+            self.branch_name, self.branch_name
+        );
         remote.push(&[&refspec], Some(&mut push_options))?;
 
         Ok(())
@@ -153,16 +149,13 @@ impl GitSync {
     /// Pull changes from remote
     pub fn pull(&self) -> Result<()> {
         let mut remote = self.repo.find_remote(&self.remote_name)?;
-        
+
         let mut callbacks = RemoteCallbacks::new();
-        callbacks.credentials(|_url, username, cred_type| {
-            self.get_credentials(username, cred_type)
-        });
-        
+        callbacks
+            .credentials(|_url, username, cred_type| self.get_credentials(username, cred_type));
+
         // Accept unknown SSH host keys (for development)
-        callbacks.certificate_check(|_cert, _host| {
-            Ok(git2::CertificateCheckStatus::CertificateOk)
-        });
+        callbacks.certificate_check(|_cert, _host| Ok(git2::CertificateCheckStatus::CertificateOk));
 
         let mut fetch_options = FetchOptions::new();
         fetch_options.remote_callbacks(callbacks);
@@ -186,8 +179,10 @@ impl GitSync {
             // Fast-forward
             let mut reference = self.repo.find_reference("HEAD")?;
             reference.set_target(fetch_commit.id(), "Fast-forward")?;
-            self.repo.set_head(&format!("refs/heads/{}", self.branch_name))?;
-            self.repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
+            self.repo
+                .set_head(&format!("refs/heads/{}", self.branch_name))?;
+            self.repo
+                .checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
         } else {
             // Need to do a real merge
             self.merge(&fetch_commit)?;
@@ -199,11 +194,11 @@ impl GitSync {
     /// Auto commit and push
     pub fn auto_commit_push(&self, message: &str) -> Result<()> {
         self.auto_commit(message)?;
-        
+
         if self.get_remote()?.is_some() {
             self.push()?;
         }
-        
+
         Ok(())
     }
 
@@ -220,14 +215,18 @@ impl GitSync {
         let local_commit = self.repo.head()?.peel_to_commit()?;
         let remote_tree = self.repo.find_commit(remote_commit.id())?.tree()?;
         let local_tree = local_commit.tree()?;
-        
+
         // Find merge base
-        let base = self.repo.merge_base(local_commit.id(), remote_commit.id())?;
+        let base = self
+            .repo
+            .merge_base(local_commit.id(), remote_commit.id())?;
         let base_tree = self.repo.find_commit(base)?.tree()?;
 
         // Perform merge
-        let mut index = self.repo.merge_trees(&base_tree, &local_tree, &remote_tree, None)?;
-        
+        let mut index = self
+            .repo
+            .merge_trees(&base_tree, &local_tree, &remote_tree, None)?;
+
         if index.has_conflicts() {
             // Handle conflicts - for JSON vault files, we can implement custom resolution
             self.resolve_conflicts(&mut index)?;
@@ -241,7 +240,7 @@ impl GitSync {
         let signature = self.get_signature()?;
         let local_commit = self.repo.head()?.peel_to_commit()?;
         let remote_commit = self.repo.find_commit(remote_commit.id())?;
-        
+
         self.repo.commit(
             Some("HEAD"),
             &signature,
@@ -259,15 +258,17 @@ impl GitSync {
         // For vault JSON files, we can implement intelligent merging
         // For now, we'll just take the remote version
         // In a real implementation, we'd merge the JSON structures
-        
-        let conflicts: Vec<_> = index.conflicts()?.collect::<std::result::Result<Vec<_>, _>>()?;
-        
+
+        let conflicts: Vec<_> = index
+            .conflicts()?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
         for conflict in conflicts {
             if let Some(their) = conflict.their {
                 index.add(&their)?;
             }
         }
-        
+
         index.write()?;
         Ok(())
     }
@@ -277,10 +278,10 @@ impl GitSync {
         let name = env::var("GIT_AUTHOR_NAME")
             .or_else(|_| env::var("USER"))
             .unwrap_or_else(|_| "SecureFox".to_string());
-        
+
         let email = env::var("GIT_AUTHOR_EMAIL")
             .unwrap_or_else(|_| format!("{}@securefox.local", name.to_lowercase()));
-        
+
         Ok(Signature::now(&name, &email)?)
     }
 
@@ -292,44 +293,35 @@ impl GitSync {
     ) -> std::result::Result<Cred, git2::Error> {
         // Try SSH key first
         if cred_type.contains(CredentialType::SSH_KEY) {
-            let home = dirs::home_dir().ok_or_else(|| {
-                git2::Error::from_str("Could not find home directory")
-            })?;
-            
+            let home = dirs::home_dir()
+                .ok_or_else(|| git2::Error::from_str("Could not find home directory"))?;
+
             let ssh_dir = home.join(".ssh");
             let username = username.unwrap_or("git");
-            
+
             // Try different key types in order of preference
             let key_types = [
                 ("id_ed25519", "id_ed25519.pub"),
                 ("id_rsa", "id_rsa.pub"),
                 ("id_ecdsa", "id_ecdsa.pub"),
             ];
-            
+
             for (private, public) in &key_types {
                 let private_key = ssh_dir.join(private);
                 let public_key = ssh_dir.join(public);
-                
+
                 if private_key.exists() {
-                    return Cred::ssh_key(
-                        username,
-                        Some(&public_key),
-                        &private_key,
-                        None,
-                    );
+                    return Cred::ssh_key(username, Some(&public_key), &private_key, None);
                 }
             }
-            
+
             // If no specific key found, try SSH agent
             return Cred::ssh_key_from_agent(username);
         }
 
         // Try username/password from environment
         if cred_type.contains(CredentialType::USER_PASS_PLAINTEXT) {
-            if let (Ok(user), Ok(pass)) = (
-                env::var("GIT_USERNAME"),
-                env::var("GIT_PASSWORD"),
-            ) {
+            if let (Ok(user), Ok(pass)) = (env::var("GIT_USERNAME"), env::var("GIT_PASSWORD")) {
                 return Cred::userpass_plaintext(&user, &pass);
             }
         }
@@ -342,19 +334,16 @@ impl GitSync {
     pub fn status(&self) -> Result<Vec<(PathBuf, Status)>> {
         let statuses = self.repo.statuses(None)?;
         let mut result = Vec::new();
-        
+
         for entry in statuses.iter() {
             if let Some(path) = entry.path() {
-                result.push((
-                    self.repo_path.join(path),
-                    entry.status(),
-                ));
+                result.push((self.repo_path.join(path), entry.status()));
             }
         }
-        
+
         Ok(result)
     }
-    
+
     /// Check if there are local changes (uncommitted or unpushed)
     pub fn has_local_changes(&self) -> Result<bool> {
         // Check for uncommitted changes
@@ -362,17 +351,23 @@ impl GitSync {
         if !statuses.is_empty() {
             return Ok(true);
         }
-        
+
         // Check for unpushed commits
         if let Ok(head) = self.repo.head() {
-            if let Ok(local_oid) = head.target().ok_or_else(|| Error::Other("No HEAD target".to_string())) {
+            if let Ok(local_oid) = head
+                .target()
+                .ok_or_else(|| Error::Other("No HEAD target".to_string()))
+            {
                 if let Ok(_remote) = self.repo.find_remote(&self.remote_name) {
-                    let remote_branch = format!("refs/remotes/{}/{}", self.remote_name, self.branch_name);
+                    let remote_branch =
+                        format!("refs/remotes/{}/{}", self.remote_name, self.branch_name);
                     if let Ok(remote_ref) = self.repo.find_reference(&remote_branch) {
                         if let Some(remote_oid) = remote_ref.target() {
                             if local_oid != remote_oid {
                                 // Check if local is ahead
-                                if let Ok((ahead, _behind)) = self.repo.graph_ahead_behind(local_oid, remote_oid) {
+                                if let Ok((ahead, _behind)) =
+                                    self.repo.graph_ahead_behind(local_oid, remote_oid)
+                                {
                                     if ahead > 0 {
                                         return Ok(true);
                                     }
@@ -383,38 +378,38 @@ impl GitSync {
                 }
             }
         }
-        
+
         Ok(false)
     }
-    
+
     /// Check if there are remote updates available
     pub fn has_remote_updates(&self) -> Result<bool> {
         // Fetch remote info without merging
         let mut remote = self.repo.find_remote(&self.remote_name)?;
-        
+
         let mut callbacks = RemoteCallbacks::new();
-        callbacks.credentials(|_url, username, cred_type| {
-            self.get_credentials(username, cred_type)
-        });
-        callbacks.certificate_check(|_cert, _host| {
-            Ok(git2::CertificateCheckStatus::CertificateOk)
-        });
-        
+        callbacks
+            .credentials(|_url, username, cred_type| self.get_credentials(username, cred_type));
+        callbacks.certificate_check(|_cert, _host| Ok(git2::CertificateCheckStatus::CertificateOk));
+
         let mut fetch_options = FetchOptions::new();
         fetch_options.remote_callbacks(callbacks);
-        
+
         // Fetch remote references
         remote.fetch(&[&self.branch_name], Some(&mut fetch_options), None)?;
-        
+
         // Compare local and remote HEAD
         if let Ok(head) = self.repo.head() {
             if let Some(local_oid) = head.target() {
-                let remote_branch = format!("refs/remotes/{}/{}", self.remote_name, self.branch_name);
+                let remote_branch =
+                    format!("refs/remotes/{}/{}", self.remote_name, self.branch_name);
                 if let Ok(remote_ref) = self.repo.find_reference(&remote_branch) {
                     if let Some(remote_oid) = remote_ref.target() {
                         if local_oid != remote_oid {
                             // Check if remote is ahead
-                            if let Ok((_ahead, behind)) = self.repo.graph_ahead_behind(local_oid, remote_oid) {
+                            if let Ok((_ahead, behind)) =
+                                self.repo.graph_ahead_behind(local_oid, remote_oid)
+                            {
                                 return Ok(behind > 0);
                             }
                         }
@@ -422,14 +417,14 @@ impl GitSync {
                 }
             }
         }
-        
+
         Ok(false)
     }
-    
+
     /// Smart synchronization: pull if remote has updates, push if local has changes
     pub fn smart_sync(&self) -> Result<SmartSyncResult> {
         let mut result = SmartSyncResult::default();
-        
+
         // Check and pull remote updates
         if self.has_remote_updates()? {
             self.pull()?;
@@ -437,14 +432,14 @@ impl GitSync {
         } else {
             result.already_up_to_date = true;
         }
-        
+
         // Check and push local changes
         if self.has_local_changes()? {
             self.auto_commit("Auto sync")?;
             self.push()?;
             result.pushed = true;
         }
-        
+
         Ok(result)
     }
 }
@@ -465,7 +460,7 @@ mod tests {
     fn test_git_init() {
         let temp_dir = tempdir().unwrap();
         let sync = GitSync::init(temp_dir.path()).unwrap();
-        
+
         assert!(temp_dir.path().join(".git").exists());
         assert!(sync.get_remote().unwrap().is_none());
     }
@@ -474,13 +469,13 @@ mod tests {
     fn test_auto_commit() {
         let temp_dir = tempdir().unwrap();
         let sync = GitSync::init(temp_dir.path()).unwrap();
-        
+
         // Create a file
         std::fs::write(temp_dir.path().join("test.txt"), "test content").unwrap();
-        
+
         // Commit
         sync.auto_commit("Test commit").unwrap();
-        
+
         // Check that commit was created
         let head = sync.repo.head().unwrap();
         let commit = head.peel_to_commit().unwrap();

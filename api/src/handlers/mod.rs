@@ -1,19 +1,19 @@
 // handlers/auth.rs
 pub mod auth_impl {
-    use axum::{extract::State, Json};
     use crate::{
         models::{StatusResponse, UnlockRequest, UnlockResponse, VaultSummary},
         ApiError, AppState, Result,
     };
+    use axum::{extract::State, Json};
 
     pub async fn unlock(
         State(state): State<AppState>,
         Json(req): Json<UnlockRequest>,
     ) -> Result<Json<UnlockResponse>> {
         let session = state.unlock(req.password)?;
-        
+
         let vault = state.get_vault().ok_or(ApiError::VaultLocked)?;
-        
+
         Ok(Json(UnlockResponse {
             token: session.id,
             expires_at: session.expires_at,
@@ -35,10 +35,9 @@ pub mod auth_impl {
     }
 
     pub async fn status(State(state): State<AppState>) -> Result<Json<StatusResponse>> {
-        let storage = securefox_core::storage::VaultStorage::with_path(
-            state.vault_path.join("vault.sf")
-        );
-        
+        let storage =
+            securefox_core::storage::VaultStorage::with_path(state.vault_path.join("vault.sf"));
+
         Ok(Json(StatusResponse {
             locked: state.is_locked(),
             session_valid: !state.sessions.read().is_empty(),
@@ -49,32 +48,32 @@ pub mod auth_impl {
 
 // Simplified placeholder handlers for other modules
 pub mod items_impl {
+    use crate::models::{CreateItemRequest, ListItemsQuery, Session, UpdateItemRequest};
+    use crate::{ApiError, AppState, Result};
+    use axum::extract::Extension;
     use axum::{
         extract::{Path, Query, State},
         http::{Request, StatusCode},
         Json,
     };
-    use axum::extract::Extension;
     use chrono::Utc;
     use securefox_core::models::Item;
     use uuid::Uuid;
-    use crate::models::{CreateItemRequest, ListItemsQuery, Session, UpdateItemRequest};
-    use crate::{ApiError, AppState, Result};
 
     pub async fn list_items(
         State(state): State<AppState>,
         Query(query): Query<ListItemsQuery>,
     ) -> Result<Json<Vec<Item>>> {
         let vault = state.get_vault().ok_or(ApiError::VaultLocked)?;
-        
+
         let mut items = vault.items;
-        
+
         // Apply filters
         if let Some(search) = query.search {
             let search_lower = search.to_lowercase();
             items.retain(|i| i.name.to_lowercase().contains(&search_lower));
         }
-        
+
         Ok(Json(items))
     }
 
@@ -87,59 +86,72 @@ pub mod items_impl {
         if req.name.trim().is_empty() {
             return Err(ApiError::BadRequest("Item name is required".to_string()));
         }
-        
+
         // For login items, validate username and at least one URI
         if req.item_type == securefox_core::models::ItemType::LOGIN {
             if let Some(ref login) = req.login {
-                if login.username.is_none() || login.username.as_ref().map(|u| u.trim().is_empty()).unwrap_or(true) {
-                    return Err(ApiError::BadRequest("Username is required for login items".to_string()));
+                if login.username.is_none()
+                    || login
+                        .username
+                        .as_ref()
+                        .map(|u| u.trim().is_empty())
+                        .unwrap_or(true)
+                {
+                    return Err(ApiError::BadRequest(
+                        "Username is required for login items".to_string(),
+                    ));
                 }
-                if login.uris.is_none() || login.uris.as_ref().map(|u| u.is_empty()).unwrap_or(true) {
-                    return Err(ApiError::BadRequest("At least one URI is required for login items".to_string()));
+                if login.uris.is_none() || login.uris.as_ref().map(|u| u.is_empty()).unwrap_or(true)
+                {
+                    return Err(ApiError::BadRequest(
+                        "At least one URI is required for login items".to_string(),
+                    ));
                 }
             } else {
-                return Err(ApiError::BadRequest("Login data is required for login items".to_string()));
+                return Err(ApiError::BadRequest(
+                    "Login data is required for login items".to_string(),
+                ));
             }
         }
-        
+
         // Check for duplicate credentials (URI + username + password)
         let vault = state.get_vault().ok_or(ApiError::VaultLocked)?;
-        
+
         if req.item_type == securefox_core::models::ItemType::LOGIN {
             if let Some(ref req_login) = req.login {
                 // Extract request username and password for comparison
                 let req_username = req_login.username.as_ref().map(|s| s.as_str());
                 let req_password = req_login.password.as_ref().map(|s| s.as_str());
                 let req_uris = req_login.uris.as_ref();
-                
+
                 // Check each existing item for duplicates
                 for existing_item in &vault.items {
                     if existing_item.item_type != securefox_core::models::ItemType::LOGIN {
                         continue;
                     }
-                    
+
                     if let Some(ref existing_login) = existing_item.login {
                         // Check if username matches
                         if existing_login.username.as_ref().map(|s| s.as_str()) != req_username {
                             continue;
                         }
-                        
+
                         // Check if any URI matches
                         let has_matching_uri = match (req_uris, &existing_login.uris) {
                             (Some(req_uris), Some(existing_uris)) => {
                                 req_uris.iter().any(|req_uri| {
-                                    existing_uris.iter().any(|existing_uri| {
-                                        req_uri.uri == existing_uri.uri
-                                    })
+                                    existing_uris
+                                        .iter()
+                                        .any(|existing_uri| req_uri.uri == existing_uri.uri)
                                 })
-                            },
+                            }
                             _ => false,
                         };
-                        
+
                         if !has_matching_uri {
                             continue;
                         }
-                        
+
                         // Found matching URI + username
                         // Check if password also matches
                         if existing_login.password.as_ref().map(|s| s.as_str()) == req_password {
@@ -152,7 +164,7 @@ pub mod items_impl {
                 }
             }
         }
-        
+
         // No duplicate found - create new item
         let now = Utc::now();
         let item = Item {
@@ -171,15 +183,15 @@ pub mod items_impl {
             creation_date: now,
             revision_date: now,
         };
-        
+
         let item_clone = item.clone();
-        
+
         // Save to vault with persistence
         state.update_vault(&session.id, |vault| {
             vault.add_item(item);
             Ok(())
         })?;
-        
+
         Ok(Json(item_clone))
     }
 
@@ -188,7 +200,9 @@ pub mod items_impl {
         Path(id): Path<String>,
     ) -> Result<Json<Item>> {
         let vault = state.get_vault().ok_or(ApiError::VaultLocked)?;
-        let item = vault.items.into_iter()
+        let item = vault
+            .items
+            .into_iter()
             .find(|i| i.id == id)
             .ok_or(ApiError::NotFound)?;
         Ok(Json(item))
@@ -200,14 +214,15 @@ pub mod items_impl {
         Path(id): Path<String>,
         Json(req): Json<UpdateItemRequest>,
     ) -> Result<Json<Item>> {
-        let updated_item = state.get_vault()
+        let updated_item = state
+            .get_vault()
             .ok_or(ApiError::VaultLocked)?
             .items
             .iter()
             .find(|i| i.id == id)
             .ok_or(ApiError::NotFound)?
             .clone();
-        
+
         // Build updated item with new revision date
         let item = Item {
             id: updated_item.id,
@@ -225,9 +240,9 @@ pub mod items_impl {
             creation_date: updated_item.creation_date,
             revision_date: Utc::now(),
         };
-        
+
         let item_clone = item.clone();
-        
+
         // Update in vault with persistence
         state.update_vault(&session.id, |vault| {
             if let Some(existing) = vault.get_item_mut(&id) {
@@ -237,7 +252,7 @@ pub mod items_impl {
                 Err(ApiError::NotFound)
             }
         })?;
-        
+
         Ok(Json(item_clone))
     }
 
@@ -247,23 +262,22 @@ pub mod items_impl {
         Path(id): Path<String>,
     ) -> Result<()> {
         state.update_vault(&session.id, |vault| {
-            vault.remove_item(&id)
-                .ok_or(ApiError::NotFound)?;
+            vault.remove_item(&id).ok_or(ApiError::NotFound)?;
             Ok(())
         })?;
-        
+
         Ok(())
     }
 }
 
 // Other handler implementations
 pub mod generate_impl {
-    use axum::{extract::State, Json};
-    use passwords::PasswordGenerator;
     use crate::{
         models::{GeneratePasswordRequest, GeneratePasswordResponse, PasswordStrength},
         AppState, Result,
     };
+    use axum::{extract::State, Json};
+    use passwords::PasswordGenerator;
 
     pub async fn generate_password(
         State(_state): State<AppState>,
@@ -279,10 +293,10 @@ pub mod generate_impl {
             exclude_similar_characters: req.exclude_similar.unwrap_or(true),
             strict: true,
         };
-        
+
         let password = pg.generate_one().unwrap();
         let score = if password.len() >= 16 { 5 } else { 3 };
-        
+
         Ok(Json(GeneratePasswordResponse {
             password,
             strength: PasswordStrength {
@@ -294,16 +308,17 @@ pub mod generate_impl {
                     2 => "Fair",
                     1 => "Weak",
                     _ => "Very Weak",
-                }.to_string(),
+                }
+                .to_string(),
             },
         }))
     }
 }
 
 pub mod health_impl {
+    use crate::models::VersionResponse;
     use axum::Json;
     use serde_json::json;
-    use crate::models::VersionResponse;
 
     pub async fn health_check() -> Json<serde_json::Value> {
         Json(json!({
@@ -316,7 +331,7 @@ pub mod health_impl {
         let git_hash = env!("GIT_HASH");
         let git_dirty = env!("GIT_DIRTY");
         let dirty_marker = if git_dirty == "dirty" { "-dirty" } else { "" };
-        
+
         Json(VersionResponse {
             version: env!("CARGO_PKG_VERSION").to_string(),
             build_time: Some(env!("BUILD_TIME").to_string()),
@@ -333,8 +348,8 @@ pub use items_impl as items;
 
 // Placeholder exports for missing modules
 pub mod sync {
-    use axum::{extract::State, Json};
     use crate::{models::SyncResponse, AppState, Result};
+    use axum::{extract::State, Json};
 
     pub async fn push(State(_state): State<AppState>) -> Result<Json<SyncResponse>> {
         Ok(Json(SyncResponse {
@@ -354,34 +369,40 @@ pub mod sync {
 }
 
 pub mod totp {
-    use axum::{extract::{Path, State}, Json};
     use crate::{models::TotpResponse, ApiError, AppState, Result};
+    use axum::{
+        extract::{Path, State},
+        Json,
+    };
 
     pub async fn get_totp(
         State(state): State<AppState>,
         Path(id): Path<String>,
     ) -> Result<Json<TotpResponse>> {
         let vault = state.get_vault().ok_or(ApiError::VaultLocked)?;
-        let item = vault.items.into_iter()
+        let item = vault
+            .items
+            .into_iter()
             .find(|i| i.id == id)
             .ok_or(ApiError::NotFound)?;
-        
+
         tracing::info!("Found item for TOTP: name={}, id={}", item.name, item.id);
         tracing::info!("Item login data: {:?}", item.login);
-        
-        let totp_secret = item.login
+
+        let totp_secret = item
+            .login
             .and_then(|l| l.totp)
             .ok_or(ApiError::BadRequest("Item has no TOTP".to_string()))?;
-        
+
         tracing::info!("TOTP secret from item: {}", totp_secret);
-        
+
         // Parse and validate TOTP secret (handles formatting, whitespace, etc.)
         use securefox_core::totp::{parse_totp_secret, TotpConfig};
         let cleaned_secret = parse_totp_secret(&totp_secret)
             .map_err(|e| ApiError::BadRequest(format!("Invalid TOTP secret: {}", e)))?;
-        
+
         let config = TotpConfig::new(cleaned_secret);
-        
+
         Ok(Json(TotpResponse {
             code: config.generate()?,
             ttl: config.ttl(),

@@ -46,14 +46,14 @@ pub struct GeneratePasswordResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PasswordStrength {
-    pub score: u8,  // 0-5
+    pub score: u8,     // 0-5
     pub label: String, // "Very Weak", "Weak", "Fair", "Good", "Strong", "Very Strong"
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TotpResponse {
     pub code: String,
-    pub ttl: u64,  // Time to live in seconds
+    pub ttl: u64, // Time to live in seconds
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -75,7 +75,7 @@ pub struct CreateItemRequest {
     pub favorite: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
-    
+
     // Type-specific fields
     #[serde(skip_serializing_if = "Option::is_none")]
     pub login: Option<securefox_core::models::LoginData>,
@@ -85,11 +85,11 @@ pub struct CreateItemRequest {
     pub identity: Option<securefox_core::models::IdentityData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secure_note: Option<securefox_core::models::SecureNoteData>,
-    
+
     // Custom fields
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fields: Option<Vec<securefox_core::models::CustomField>>,
-    
+
     // Metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reprompt: Option<u8>,
@@ -107,7 +107,7 @@ pub struct UpdateItemRequest {
     pub favorite: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
-    
+
     // Type-specific fields
     #[serde(skip_serializing_if = "Option::is_none")]
     pub login: Option<securefox_core::models::LoginData>,
@@ -117,11 +117,11 @@ pub struct UpdateItemRequest {
     pub identity: Option<securefox_core::models::IdentityData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secure_note: Option<securefox_core::models::SecureNoteData>,
-    
+
     // Custom fields
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fields: Option<Vec<securefox_core::models::CustomField>>,
-    
+
     // Metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reprompt: Option<u8>,
@@ -146,7 +146,7 @@ pub struct Session {
     pub id: String,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
-    pub master_password: String,  // In production, store key derivation instead
+    pub master_password: String, // In production, store key derivation instead
 }
 
 impl Session {

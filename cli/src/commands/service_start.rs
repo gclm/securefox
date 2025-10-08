@@ -10,13 +10,13 @@ pub async fn execute(
     timeout: u64,
 ) -> Result<()> {
     let vault_path = vault_path.ok_or_else(|| anyhow::anyhow!("Vault path not specified"))?;
-    
+
     // Check if service is already running
     let pid_file = vault_path.join("service.pid");
     if pid_file.exists() {
         let pid_str = fs::read_to_string(&pid_file)?;
         let pid: u32 = pid_str.trim().parse()?;
-        
+
         // Check if process is still running
         if is_process_running(pid) {
             anyhow::bail!("Service is already running (PID: {})", pid);
@@ -25,15 +25,14 @@ pub async fn execute(
             fs::remove_file(&pid_file)?;
         }
     }
-    
+
     // Get current executable path
-    let exe_path = std::env::current_exe()
-        .context("Failed to get current executable path")?;
-    
+    let exe_path = std::env::current_exe().context("Failed to get current executable path")?;
+
     // Prepare log files
     let log_file = vault_path.join("service.log");
     let err_file = vault_path.join("service.err");
-    
+
     // Spawn background process
     let child = Command::new(&exe_path)
         .arg("--vault")
@@ -51,16 +50,15 @@ pub async fn execute(
         .stderr(Stdio::from(fs::File::create(&err_file)?))
         .spawn()
         .context("Failed to spawn background service")?;
-    
+
     let pid = child.id();
-    
+
     // Write PID file
-    fs::write(&pid_file, pid.to_string())
-        .context("Failed to write PID file")?;
-    
+    fs::write(&pid_file, pid.to_string()).context("Failed to write PID file")?;
+
     // Give the service a moment to start and bind the port
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-    
+
     // Check if the process is still running
     if !is_process_running(pid) {
         // Clean up PID file
@@ -71,7 +69,7 @@ pub async fn execute(
             err_file.display()
         );
     }
-    
+
     // Check if port is actually bound
     if !is_port_in_use(port) {
         // Clean up PID file
@@ -83,13 +81,13 @@ pub async fn execute(
             err_file.display()
         );
     }
-    
+
     println!("✓ Service started successfully");
     println!("  PID: {}", pid);
     println!("  API: http://{}:{}", host, port);
     println!("  Vault: {}", vault_path.display());
     println!("  Logs: {}", log_file.display());
-    
+
     Ok(())
 }
 
@@ -104,7 +102,7 @@ fn is_process_running(pid: u32) -> bool {
             .map(|output| output.status.success())
             .unwrap_or(false)
     }
-    
+
     #[cfg(not(unix))]
     {
         // For Windows, would need different implementation
@@ -123,7 +121,7 @@ fn is_port_in_use(port: u16) -> bool {
             .map(|output| output.status.success())
             .unwrap_or(false)
     }
-    
+
     #[cfg(not(unix))]
     {
         // For Windows, use netstat

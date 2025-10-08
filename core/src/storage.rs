@@ -5,7 +5,10 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::crypto::{decrypt_with_password, encrypt_with_password, encrypt_with_password_and_kdf, EncryptedData, KdfParams};
+use crate::crypto::{
+    decrypt_with_password, encrypt_with_password, encrypt_with_password_and_kdf, EncryptedData,
+    KdfParams,
+};
 use crate::errors::{Error, Result};
 use crate::models::Vault;
 
@@ -67,7 +70,7 @@ impl VaultStorage {
     pub fn save(&self, vault: &Vault, password: &str) -> Result<()> {
         self.save_internal(vault, password, true)
     }
-    
+
     /// Internal save method with optional sync
     fn save_internal(&self, vault: &Vault, password: &str, trigger_sync: bool) -> Result<()> {
         self.ensure_directory()?;
@@ -87,7 +90,7 @@ impl VaultStorage {
         // Save to file
         let contents = serde_json::to_string_pretty(&encrypted_vault)?;
         fs::write(&self.vault_path, contents)?;
-        
+
         // Trigger git sync if enabled and configured for PushOnChange
         #[cfg(feature = "git")]
         if trigger_sync {
@@ -98,7 +101,12 @@ impl VaultStorage {
     }
 
     /// Save a vault with encryption using specified KDF
-    pub fn save_with_kdf(&self, vault: &Vault, password: &str, kdf_params: KdfParams) -> Result<()> {
+    pub fn save_with_kdf(
+        &self,
+        vault: &Vault,
+        password: &str,
+        kdf_params: KdfParams,
+    ) -> Result<()> {
         self.ensure_directory()?;
 
         // Serialize vault to JSON
@@ -116,19 +124,19 @@ impl VaultStorage {
         // Save to file
         let contents = serde_json::to_string_pretty(&encrypted_vault)?;
         fs::write(&self.vault_path, contents)?;
-        
+
         // Trigger git sync if enabled and configured for PushOnChange
         #[cfg(feature = "git")]
         self.try_auto_sync(vault)?;
 
         Ok(())
     }
-    
+
     /// Try to auto-sync if configured
     #[cfg(feature = "git")]
     fn try_auto_sync(&self, vault: &Vault) -> Result<()> {
         use crate::git_sync::GitSync;
-        
+
         // Check if sync is configured and enabled
         if let Some(sync_config) = &vault.sync_config {
             if sync_config.enabled && sync_config.mode.is_push_on_change() {
@@ -141,7 +149,7 @@ impl VaultStorage {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -175,7 +183,7 @@ impl VaultStorage {
             VAULT_FILE_NAME,
             chrono::Utc::now().timestamp()
         );
-        
+
         let backup_path = self
             .vault_path
             .parent()

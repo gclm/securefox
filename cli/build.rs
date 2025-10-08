@@ -9,7 +9,7 @@ fn main() {
         .and_then(|output| String::from_utf8(output.stdout).ok())
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|| "unknown".to_string());
-    
+
     // Get git branch
     let git_branch = Command::new("git")
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
@@ -18,10 +18,10 @@ fn main() {
         .and_then(|output| String::from_utf8(output.stdout).ok())
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|| "unknown".to_string());
-    
+
     // Get build timestamp
     let build_time = chrono::Local::now().to_rfc3339();
-    
+
     // Check if working directory is clean
     let git_dirty = Command::new("git")
         .args(["status", "--porcelain"])
@@ -29,26 +29,28 @@ fn main() {
         .ok()
         .map(|output| !output.stdout.is_empty())
         .unwrap_or(false);
-    
+
     // Get Rust version
-    let rustc_version = std::env::var("RUSTC_VERSION")
-        .unwrap_or_else(|_| {
-            Command::new("rustc")
-                .arg("--version")
-                .output()
-                .ok()
-                .and_then(|output| String::from_utf8(output.stdout).ok())
-                .map(|s| s.trim().to_string())
-                .unwrap_or_else(|| "unknown".to_string())
-        });
-    
+    let rustc_version = std::env::var("RUSTC_VERSION").unwrap_or_else(|_| {
+        Command::new("rustc")
+            .arg("--version")
+            .output()
+            .ok()
+            .and_then(|output| String::from_utf8(output.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| "unknown".to_string())
+    });
+
     // Set environment variables for compile time
     println!("cargo:rustc-env=GIT_HASH={}", git_hash);
     println!("cargo:rustc-env=GIT_BRANCH={}", git_branch);
     println!("cargo:rustc-env=BUILD_TIME={}", build_time);
-    println!("cargo:rustc-env=GIT_DIRTY={}", if git_dirty { "dirty" } else { "clean" });
+    println!(
+        "cargo:rustc-env=GIT_DIRTY={}",
+        if git_dirty { "dirty" } else { "clean" }
+    );
     println!("cargo:rustc-env=RUSTC_VERSION={}", rustc_version);
-    
+
     // Rerun if git changes
     println!("cargo:rerun-if-changed=../.git/HEAD");
     println!("cargo:rerun-if-changed=../.git/index");

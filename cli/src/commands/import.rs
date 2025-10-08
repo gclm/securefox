@@ -1,26 +1,22 @@
 use anyhow::Result;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
-use securefox_core::{importers::{bitwarden::BitwardenImporter, Importer}, storage::VaultStorage};
+use securefox_core::{
+    importers::{bitwarden::BitwardenImporter, Importer},
+    storage::VaultStorage,
+};
 use std::path::PathBuf;
 
-pub async fn execute(
-    vault_path: Option<PathBuf>,
-    file: PathBuf,
-    format: String,
-) -> Result<()> {
+pub async fn execute(vault_path: Option<PathBuf>, file: PathBuf, format: String) -> Result<()> {
     let vault_path = vault_path
         .ok_or_else(|| anyhow::anyhow!("Vault path not specified"))?
         .join("vault.sf");
-    
-    println!("{} from {}", 
-        "Importing".cyan().bold(), 
-        file.display()
-    );
-    
+
+    println!("{} from {}", "Importing".cyan().bold(), file.display());
+
     // Read import file
     let data = std::fs::read_to_string(&file)?;
-    
+
     // Import based on format
     let imported_vault = match format.as_str() {
         "bitwarden" => {
@@ -29,15 +25,16 @@ pub async fn execute(
         }
         _ => return Err(anyhow::anyhow!("Unsupported import format: {}", format)),
     };
-    
+
     let item_count = imported_vault.items.len();
     let folder_count = imported_vault.folders.len();
-    
-    println!("Found {} items and {} folders to import", 
+
+    println!(
+        "Found {} items and {} folders to import",
         item_count.to_string().green().bold(),
         folder_count.to_string().green().bold()
     );
-    
+
     // Load existing vault or create new one
     let storage = VaultStorage::with_path(&vault_path);
     let (mut vault, password) = if storage.exists() {
@@ -52,7 +49,7 @@ pub async fn execute(
             .interact()?;
         (securefox_core::models::Vault::new(), password)
     };
-    
+
     // Import with progress bar
     let pb = ProgressBar::new((item_count + folder_count) as u64);
     pb.set_style(
@@ -61,7 +58,7 @@ pub async fn execute(
             .unwrap()
             .progress_chars("#>-"),
     );
-    
+
     // Import folders
     for folder in imported_vault.folders {
         pb.set_message(format!("Importing folder: {}", folder.name));
@@ -70,7 +67,7 @@ pub async fn execute(
         }
         pb.inc(1);
     }
-    
+
     // Import items
     for item in imported_vault.items {
         pb.set_message(format!("Importing: {}", item.name));
@@ -79,12 +76,12 @@ pub async fn execute(
         }
         pb.inc(1);
     }
-    
+
     pb.finish_with_message("Import complete");
-    
+
     // Save vault
     storage.save(&vault, &password)?;
-    
+
     // Git sync
     #[cfg(feature = "git")]
     {
@@ -94,11 +91,12 @@ pub async fn execute(
             sync.auto_commit_push(&format!("Imported {} items from {}", item_count, format))?;
         }
     }
-    
-    println!("{} Successfully imported {} items", 
+
+    println!(
+        "{} Successfully imported {} items",
         "✓".green().bold(),
         item_count
     );
-    
+
     Ok(())
 }

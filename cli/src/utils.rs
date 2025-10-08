@@ -25,13 +25,15 @@ pub fn get_password(prompt: &str) -> anyhow::Result<String> {
 /// Load vault with password prompt
 pub fn load_vault(path: &Path) -> anyhow::Result<(securefox_core::models::Vault, String)> {
     let storage = VaultStorage::with_path(path);
-    
+
     if !storage.exists() {
-        return Err(anyhow::anyhow!("Vault not found. Run 'securefox init' to create one."));
+        return Err(anyhow::anyhow!(
+            "Vault not found. Run 'securefox init' to create one."
+        ));
     }
 
     let password = get_password("Enter master password")?;
     let vault = storage.load(&password)?;
-    
+
     Ok((vault, password))
 }
