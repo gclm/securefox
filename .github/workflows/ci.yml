@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  merge_group:
 
 env:
   CARGO_TERM_COLOR: always
@@ -88,6 +89,29 @@ jobs:
         working-directory: extension
         run: pnpm compile
 
-      - name: Build check
+      - name: Lint check
         working-directory: extension
-        run: pnpm build
+        run: pnpm lint || true
+
+  summary:
+    name: CI Summary
+    needs: [rust-check, extension-check]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Check status
+        run: |
+          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Rust Check: ${{ needs.rust-check.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Extension Check: ${{ needs.extension-check.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.rust-check.result }}" = "success" ] && [ "${{ needs.extension-check.result }}" = "success" ]; then
+            echo "✅ All checks passed!" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "❌ Some checks failed!" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

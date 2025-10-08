@@ -16,171 +16,17 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  build-cli:
-    name: Build CLI - ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: securefox-macos-x64
-            
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact_name: securefox-macos-arm64
-            
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: securefox-linux-x64
-            
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact_name: securefox-linux-arm64
-            cross: true
-            
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: securefox-windows-x64
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Install cross
-        if: matrix.cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.target }}-cargo-release-
-
-      - name: Build with cross
-        if: matrix.cross
-        run: cross build --release --target ${{ matrix.target }} -p securefox-cli --features vendored-ssl
-
-      - name: Build natively
-        if: ${{ !matrix.cross }}
-        run: cargo build --release --target ${{ matrix.target }} -p securefox-cli --features vendored-ssl
-
-      - name: Prepare artifact (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          mkdir -p artifacts
-          cp target/${{ matrix.target }}/release/securefox artifacts/
-          chmod +x artifacts/securefox
-          cd artifacts
-          tar czf ${{ matrix.artifact_name }}.tar.gz securefox
-          mv ${{ matrix.artifact_name }}.tar.gz ..
-          cd ..
-          shasum -a 256 ${{ matrix.artifact_name }}.tar.gz > ${{ matrix.artifact_name }}.tar.gz.sha256
-
-      - name: Prepare artifact (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir artifacts
-          copy target\${{ matrix.target }}\release\securefox.exe artifacts\
-          cd artifacts
-          7z a -tzip ..\${{ matrix.artifact_name }}.zip securefox.exe
-          cd ..
-          certutil -hashfile ${{ matrix.artifact_name }}.zip SHA256 > ${{ matrix.artifact_name }}.zip.sha256
-
-      - name: Upload artifact (Unix)
-        if: runner.os != 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: |
-            ${{ matrix.artifact_name }}.tar.gz
-            ${{ matrix.artifact_name }}.tar.gz.sha256
-
-      - name: Upload artifact (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: |
-            ${{ matrix.artifact_name }}.zip
-            ${{ matrix.artifact_name }}.zip.sha256
-
-  build-extension:
-    name: Build Extension - ${{ matrix.browser }}
-    runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        browser: [chrome, firefox]
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: extension/pnpm-lock.yaml
-
-      - name: Install dependencies
-        working-directory: extension
-        run: pnpm install --frozen-lockfile
-
-      - name: Build extension
-        working-directory: extension
-        run: |
-          if [ "${{ matrix.browser }}" = "chrome" ]; then
-            pnpm build
-            pnpm zip
-          else
-            pnpm build:firefox
-            pnpm zip:firefox
-          fi
-
-      - name: Prepare artifact
-        working-directory: extension
-        run: |
-          mkdir -p ../artifacts
-          if [ "${{ matrix.browser }}" = "chrome" ]; then
-            mv .output/*.zip ../artifacts/securefox-extension-chrome.zip || true
-          else
-            mv .output/*.zip ../artifacts/securefox-extension-firefox.zip || true
-          fi
-          cd ../artifacts
-          shasum -a 256 securefox-extension-${{ matrix.browser }}.zip > securefox-extension-${{ matrix.browser }}.zip.sha256
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: securefox-extension-${{ matrix.browser }}
-          path: |
-            artifacts/securefox-extension-${{ matrix.browser }}.zip
-            artifacts/securefox-extension-${{ matrix.browser }}.zip.sha256
+  # Call the reusable build workflow
+  build:
+    name: Build All Platforms
+    uses: ./.github/workflows/build.yml
+    with:
+      upload-artifacts: true
+      retention-days: 90
 
   create-release:
     name: Create Release
-    needs: [build-cli, build-extension]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write

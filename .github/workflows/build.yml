@@ -1,0 +1,216 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifacts:
+        description: 'Upload artifacts'
+        type: boolean
+        default: true
+      retention-days:
+        description: 'Artifact retention days'
+        type: number
+        default: 30
+  workflow_dispatch:
+    inputs:
+      upload-artifacts:
+        description: 'Upload artifacts'
+        type: boolean
+        default: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-cli:
+    name: Build CLI - ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS (Intel)
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: securefox-macos-x64
+            
+          # macOS (Apple Silicon)
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: securefox-macos-arm64
+            
+          # Linux (x64)
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: securefox-linux-x64
+            
+          # Linux (ARM64)
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_name: securefox-linux-arm64
+            cross: true
+            
+          # Windows (x64)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: securefox-windows-x64
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (for cross-compilation)
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build with cross
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }} -p securefox-cli --features vendored-ssl
+
+      - name: Build natively
+        if: ${{ !matrix.cross }}
+        run: cargo build --release --target ${{ matrix.target }} -p securefox-cli --features vendored-ssl
+
+      - name: Prepare artifact (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p artifacts
+          cp target/${{ matrix.target }}/release/securefox artifacts/
+          chmod +x artifacts/securefox
+          cd artifacts
+          tar czf ${{ matrix.artifact_name }}.tar.gz securefox
+          mv ${{ matrix.artifact_name }}.tar.gz ..
+
+      - name: Prepare artifact (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir artifacts
+          copy target\${{ matrix.target }}\release\securefox.exe artifacts\
+          cd artifacts
+          7z a -tzip ..\${{ matrix.artifact_name }}.zip securefox.exe
+
+      - name: Upload artifact (Unix)
+        if: runner.os != 'Windows' && inputs.upload-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.tar.gz
+          retention-days: ${{ inputs.retention-days }}
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows' && inputs.upload-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.zip
+          retention-days: ${{ inputs.retention-days }}
+
+  build-extension:
+    name: Build Extension - ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: extension/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: extension
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension for Chrome
+        if: matrix.browser == 'chrome'
+        working-directory: extension
+        run: pnpm build
+
+      - name: Build extension for Firefox
+        if: matrix.browser == 'firefox'
+        working-directory: extension
+        run: pnpm build:firefox
+
+      - name: Package extension for Chrome
+        if: matrix.browser == 'chrome'
+        working-directory: extension
+        run: pnpm zip
+
+      - name: Package extension for Firefox
+        if: matrix.browser == 'firefox'
+        working-directory: extension
+        run: pnpm zip:firefox
+
+      - name: Prepare artifact
+        working-directory: extension
+        run: |
+          mkdir -p ../artifacts
+          if [ "${{ matrix.browser }}" = "chrome" ]; then
+            mv .output/*.zip ../artifacts/securefox-extension-chrome.zip || true
+          else
+            mv .output/*.zip ../artifacts/securefox-extension-firefox.zip || true
+          fi
+
+      - name: Upload artifact
+        if: inputs.upload-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: securefox-extension-${{ matrix.browser }}
+          path: artifacts/securefox-extension-${{ matrix.browser }}.zip
+          retention-days: ${{ inputs.retention-days }}
+
+  summary:
+    name: Build Summary
+    needs: [build-cli, build-extension]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Check build status
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- CLI Build: ${{ needs.build-cli.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Extension Build: ${{ needs.build-extension.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.build-cli.result }}" = "success" ] && [ "${{ needs.build-extension.result }}" = "success" ]; then
+            echo "✅ All builds succeeded!" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "❌ Some builds failed!" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
