@@ -14,7 +14,7 @@ interface Note {
 
 export const NotesView: React.FC = () => {
   const { items, deleteItem, searchQuery } = useVaultStore();
-  const { showNotification } = useUIStore();
+  const { showNotification, showDetailView } = useUIStore();
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   
   // 从 vault store 过滤出笔记类型的项目
@@ -75,10 +75,7 @@ export const NotesView: React.FC = () => {
             {filteredNotes.map(note => (
               <div
                 key={note.id}
-                onClick={() => {
-                  const { showDetailView } = useUIStore.getState();
-                  showDetailView(note.id, 'note');
-                }}
+                onClick={() => showDetailView(note.id, 'note')}
                 className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-all hover:shadow-lg group"
               >
                 <div>

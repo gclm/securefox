@@ -11,18 +11,19 @@ interface NoteDetailViewProps {
 }
 
 export const NoteDetailView: React.FC<NoteDetailViewProps> = ({ onBack }) => {
+  // ✅ All hooks at the top level - always called
   const { selectedItemId, showNotification, closeDetailView } = useUIStore();
   const { items, updateItem, deleteItem } = useVaultStore();
   
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
-  const item = items.find(i => i.id === selectedItemId);
-  
   const [form, setForm] = useState({
     name: '',
     notes: '',
   });
+  
+  // Find item after all hooks
+  const item = items.find(i => i.id === selectedItemId);
 
   useEffect(() => {
     if (item) {
@@ -129,26 +130,23 @@ export const NoteDetailView: React.FC<NoteDetailViewProps> = ({ onBack }) => {
     setIsEditing(false);
   };
 
-  if (!item) {
-    return (
-      <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
-        <header className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <button
-            onClick={onBack}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          </button>
-          <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">未找到笔记</h1>
-        </header>
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-500">该笔记不存在</p>
-        </div>
+  // ✅ Use conditional rendering instead of early return
+  return !item ? (
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
+      <header className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={onBack}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+        </button>
+        <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">未找到笔记</h1>
+      </header>
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-gray-500">该笔记不存在</p>
       </div>
-    );
-  }
-
-  return (
+    </div>
+  ) : (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">

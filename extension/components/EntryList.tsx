@@ -13,7 +13,9 @@ interface EntryListProps {
 }
 
 export const EntryList: React.FC<EntryListProps> = ({ view }) => {
+  // ✅ All hooks at the top level
   const { items, searchQuery, selectedFolder } = useVaultStore();
+  const { showDetailView, showNotification } = useUIStore();
   const [showPassword, setShowPassword] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string>('');
@@ -75,6 +77,38 @@ export const EntryList: React.FC<EntryListProps> = ({ view }) => {
     return loginItems;
   }, [view, loginItems, currentUrl]);
 
+  // ✅ All remaining hooks before any early returns
+  // 在登录视图中分组显示：当前网站匹配项 + 所有项
+  const shouldShowCurrentSiteSection = (view === 'list' || view === 'recent') && currentUrl;
+  
+  const currentSiteItems = useMemo(() => {
+    if (!shouldShowCurrentSiteSection) {
+      return [];
+    }
+    return findMatchingItems(displayItems, currentUrl);
+  }, [shouldShowCurrentSiteSection, displayItems, currentUrl]);
+
+  const otherItems = useMemo(() => {
+    if (!shouldShowCurrentSiteSection || currentSiteItems.length === 0) {
+      return displayItems;
+    }
+    const currentItemIds = new Set(currentSiteItems.map(item => item.id));
+    return displayItems.filter(item => !currentItemIds.has(item.id));
+  }, [shouldShowCurrentSiteSection, currentSiteItems, displayItems]);
+
+  // 自动获取当前网站URL
+  useEffect(() => {
+    if (view === 'list' || view === 'recent') {
+      chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+        if (tab?.url) {
+          setCurrentUrl(tab.url);
+        }
+      }).catch(() => {
+        setCurrentUrl('');
+      });
+    }
+  }, [view]);
+
   const handleCopyPassword = async (item: Item) => {
     if (item.login?.password) {
       await navigator.clipboard.writeText(item.login.password);
@@ -83,6 +117,7 @@ export const EntryList: React.FC<EntryListProps> = ({ view }) => {
     }
   };
 
+  // ✅ Now all hooks are called - early returns can happen
   // 如果是特殊视图，渲染对应组件 (所有hooks已调用后才返回)
   if (view === 'cards') {
     return <CreditCardView />;
@@ -130,7 +165,6 @@ export const EntryList: React.FC<EntryListProps> = ({ view }) => {
         {view === 'list' && (
           <button 
             onClick={() => {
-              const { showNotification } = useUIStore.getState();
               showNotification({
                 type: 'info',
                 title: '功能开发中',
@@ -151,44 +185,12 @@ export const EntryList: React.FC<EntryListProps> = ({ view }) => {
     );
   }
 
-  // 在登录视图中分组显示：当前网站匹配项 + 所有项
-  const shouldShowCurrentSiteSection = (view === 'list' || view === 'recent') && currentUrl;
-  const currentSiteItems = useMemo(() => {
-    if (shouldShowCurrentSiteSection) {
-      return findMatchingItems(displayItems, currentUrl);
-    }
-    return [];
-  }, [shouldShowCurrentSiteSection, displayItems, currentUrl]);
-
-  const otherItems = useMemo(() => {
-    if (shouldShowCurrentSiteSection && currentSiteItems.length > 0) {
-      const currentItemIds = new Set(currentSiteItems.map(item => item.id));
-      return displayItems.filter(item => !currentItemIds.has(item.id));
-    }
-    return displayItems;
-  }, [shouldShowCurrentSiteSection, currentSiteItems, displayItems]);
-
-  // 自动获取当前网站URL
-  useEffect(() => {
-    if (view === 'list' || view === 'recent') {
-      chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-        if (tab?.url) {
-          setCurrentUrl(tab.url);
-        }
-      }).catch(() => {
-        setCurrentUrl('');
-      });
-    }
-  }, [view]);
 
   const renderItem = (item: Item) => (
     <div
       key={item.id}
       className="flex items-center gap-4 p-4 rounded-xl bg-white dark:bg-gray-800 hover:shadow-lg cursor-pointer transition-all duration-200 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 group"
-      onClick={() => {
-        const { showDetailView } = useUIStore.getState();
-        showDetailView(item.id, 'login');
-      }}
+      onClick={() => showDetailView(item.id, 'login')}
     >
       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
         <Key className="w-6 h-6 text-white" />
