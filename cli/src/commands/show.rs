@@ -1,7 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
 use copypasta_ext::prelude::*;
-use copypasta_ext::x11_fork::{ClipboardContext, ClipboardProvider};
+use copypasta_ext::x11_fork::ClipboardContext;
 use securefox_core::totp::TotpConfig;
 use std::path::PathBuf;
 
