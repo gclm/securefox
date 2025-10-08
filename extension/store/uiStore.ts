@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { Notification } from '@/types';
+import { type AutoLockOption, SESSION_CONFIG } from '@/utils/constants';
+import { getUserSettings, saveAutoLockMinutes } from '@/lib/storage';
 
 interface UIState {
   // State
@@ -8,6 +10,7 @@ interface UIState {
   isSettingsOpen: boolean;
   activeView: 'list' | 'favorites' | 'recent' | 'generator' | 'cards' | 'notes';
   theme: 'light' | 'dark' | 'system';
+  autoLockMinutes: AutoLockOption;
   
   // Modal states
   isAddItemModalOpen: boolean;
@@ -22,6 +25,7 @@ interface UIState {
   setSettingsOpen: (open: boolean) => void;
   setActiveView: (view: UIState['activeView']) => void;
   setTheme: (theme: UIState['theme']) => void;
+  setAutoLockMinutes: (minutes: AutoLockOption) => Promise<void>;
   setAddItemModalOpen: (open: boolean) => void;
   showDetailView: (itemId: string, type: 'login' | 'note' | 'card') => void;
   closeDetailView: () => void;
@@ -34,6 +38,7 @@ const useUIStore = create<UIState>((set) => ({
   isSettingsOpen: false,
   activeView: 'list',
   theme: 'system',
+  autoLockMinutes: SESSION_CONFIG.AUTO_LOCK_MINUTES as AutoLockOption,
   
   // Modal states
   isAddItemModalOpen: false,
@@ -106,6 +111,27 @@ const useUIStore = create<UIState>((set) => ({
     chrome.storage.local.set({ theme });
   },
   
+  // Set auto-lock minutes
+  setAutoLockMinutes: async (minutes) => {
+    try {
+      set({ autoLockMinutes: minutes });
+      await saveAutoLockMinutes(minutes);
+      
+      // Notify background script to update timer
+      chrome.runtime.sendMessage({
+        type: 'UPDATE_AUTO_LOCK',
+        minutes,
+      }).catch(() => {
+        // Ignore if no listener
+      });
+    } catch (error) {
+      console.error('Failed to update auto-lock minutes:', error);
+      // Revert to previous value on error
+      const settings = await getUserSettings();
+      set({ autoLockMinutes: settings.autoLockMinutes });
+    }
+  },
+  
   // Set add item modal state
   setAddItemModalOpen: (open) => {
     set({ isAddItemModalOpen: open });
@@ -127,6 +153,11 @@ chrome.storage.local.get('theme').then(({ theme }) => {
   if (theme) {
     useUIStore.getState().setTheme(theme);
   }
+});
+
+// Load auto-lock preference on startup
+getUserSettings().then((settings) => {
+  useUIStore.setState({ autoLockMinutes: settings.autoLockMinutes });
 });
 
 // Listen for system theme changes

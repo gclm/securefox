@@ -1,6 +1,7 @@
 import { MESSAGE_TYPES, SESSION_CONFIG, STORAGE_KEYS } from '@/utils/constants';
 import * as authApi from '@/lib/api/auth';
 import * as entriesApi from '@/lib/api/entries';
+import { getAutoLockMinutes } from '@/lib/storage';
 
 export default defineBackground(() => {
   console.log('SecureFox background service started', { id: browser.runtime.id });
@@ -9,10 +10,13 @@ export default defineBackground(() => {
   let autoLockTimer: NodeJS.Timeout | null = null;
 
   // Reset auto-lock timer
-  const resetAutoLockTimer = () => {
+  const resetAutoLockTimer = async () => {
     if (autoLockTimer) {
       clearTimeout(autoLockTimer);
     }
+    
+    // Get auto-lock minutes from storage
+    const minutes = await getAutoLockMinutes();
     
     autoLockTimer = setTimeout(async () => {
       // Auto-lock the vault
@@ -25,7 +29,7 @@ export default defineBackground(() => {
       chrome.runtime.sendMessage({
         type: MESSAGE_TYPES.VAULT_LOCKED,
       }).catch(() => {});
-    }, SESSION_CONFIG.AUTO_LOCK_MINUTES * 60 * 1000);
+    }, minutes * 60 * 1000);
   };
 
   // Update extension icon based on lock state
@@ -110,6 +114,15 @@ export default defineBackground(() => {
               clearTimeout(autoLockTimer);
             }
             await updateExtensionIcon(false);
+            break;
+
+          case 'UPDATE_AUTO_LOCK':
+            // Settings updated, restart timer if unlocked
+            const isCurrentlyUnlocked = await authApi.isUnlocked();
+            if (isCurrentlyUnlocked) {
+              await resetAutoLockTimer();
+            }
+            sendResponse({ success: true });
             break;
 
           default:

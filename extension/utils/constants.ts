@@ -7,6 +7,7 @@ export const API_ENDPOINTS = {
   UNLOCK: '/api/unlock',
   LOCK: '/api/lock',
   STATUS: '/api/status',
+  VERSION: '/api/version',
   ENTRIES: '/api/items',
   FOLDERS: '/api/folders',
   GENERATE: '/api/generate/password',
@@ -26,6 +27,10 @@ export const SESSION_CONFIG = {
   TOKEN_REFRESH_MINUTES: 10,
   MAX_LOGIN_ATTEMPTS: 5,
 } as const;
+
+// Auto-lock options (in minutes)
+export const AUTO_LOCK_OPTIONS = [5, 10, 15, 30, 60] as const;
+export type AutoLockOption = typeof AUTO_LOCK_OPTIONS[number];
 
 // UI Configuration
 export const UI_CONFIG = {

@@ -152,12 +152,25 @@ pub mod generate_impl {
 pub mod health_impl {
     use axum::Json;
     use serde_json::json;
+    use crate::models::VersionResponse;
 
     pub async fn health_check() -> Json<serde_json::Value> {
         Json(json!({
             "status": "ok",
             "service": "securefox-api"
         }))
+    }
+
+    pub async fn version() -> Json<VersionResponse> {
+        let git_hash = env!("GIT_HASH");
+        let git_dirty = env!("GIT_DIRTY");
+        let dirty_marker = if git_dirty == "dirty" { "-dirty" } else { "" };
+        
+        Json(VersionResponse {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            build_time: Some(env!("BUILD_TIME").to_string()),
+            git_commit: Some(format!("{}{}", git_hash, dirty_marker)),
+        })
     }
 }
 

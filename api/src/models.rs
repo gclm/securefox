@@ -70,6 +70,13 @@ pub struct SyncResponse {
     pub items_synced: usize,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VersionResponse {
+    pub version: String,
+    pub build_time: Option<String>,
+    pub git_commit: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Session {
     pub id: String,

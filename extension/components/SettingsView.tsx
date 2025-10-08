@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { 
   ArrowLeft,
   Lock,
-  Moon,
-  Sun,
-  Globe,
   Bell,
   Shield,
   HelpCircle,
@@ -12,16 +10,24 @@ import {
   Info
 } from 'lucide-react';
 import { useUIStore, useAuthStore } from '@/store';
-import { SESSION_CONFIG } from '@/utils/constants';
+import { AUTO_LOCK_OPTIONS } from '@/utils/constants';
+import { getVersion } from '@/lib/api';
 
 interface SettingsViewProps {
   onBack: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
-  const { theme, setTheme } = useUIStore();
+  const { autoLockMinutes, setAutoLockMinutes } = useUIStore();
   const { lock } = useAuthStore();
-  const [autoLockMinutes, setAutoLockMinutes] = useState(SESSION_CONFIG.AUTO_LOCK_MINUTES);
+  const [showAutoLockPicker, setShowAutoLockPicker] = useState(false);
+  
+  // Fetch version from API
+  const { data: versionData, isLoading: isVersionLoading } = useQuery({
+    queryKey: ['version'],
+    queryFn: getVersion,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
 
   const settingGroups = [
     {
@@ -39,27 +45,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
           icon: Shield,
           label: '自动锁定',
           description: `${autoLockMinutes} 分钟后自动锁定`,
-          value: autoLockMinutes,
-          type: 'select'
-        }
-      ]
-    },
-    {
-      title: '外观',
-      items: [
-        {
-          icon: theme === 'dark' ? Moon : Sun,
-          label: '主题',
-          description: theme === 'dark' ? '深色模式' : '浅色模式',
-          action: () => {
-            setTheme(theme === 'dark' ? 'light' : 'dark');
-          }
-        },
-        {
-          icon: Globe,
-          label: '语言',
-          description: '简体中文',
-          disabled: true
+          action: () => setShowAutoLockPicker(true)
         }
       ]
     },
@@ -81,7 +67,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
         {
           icon: Info,
           label: '版本',
-          description: 'v1.0.0',
+          description: isVersionLoading 
+            ? '加载中...' 
+            : versionData 
+              ? `v${versionData.version}${versionData.git_commit ? ` (${versionData.git_commit})` : ''}` 
+              : '未知',
           disabled: true
         },
         {
@@ -89,7 +79,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
           label: '帮助与反馈',
           description: '获取帮助或提供反馈',
           action: () => {
-            window.open('https://github.com/securefox/securefox', '_blank');
+            window.open('https://github.com/gclm/securefox', '_blank');
           }
         }
       ]
@@ -149,11 +139,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
                         item.value ? 'translate-x-5' : 'translate-x-0.5'
                       } mt-0.5`} />
                     </div>
-                  ) : item.type === 'select' ? (
-                    <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                      <span>{item.value}</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
                   ) : !item.disabled ? (
                     <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                   ) : null}
@@ -179,6 +164,47 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
           </p>
         </div>
       </div>
+
+      {/* Auto-lock Time Picker Modal */}
+      {showAutoLockPicker && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-end z-50"
+          onClick={() => setShowAutoLockPicker(false)}
+        >
+          <div 
+            className="w-full bg-white dark:bg-gray-800 rounded-t-xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+              自动锁定时间
+            </h3>
+            <div className="space-y-2">
+              {AUTO_LOCK_OPTIONS.map((minutes) => (
+                <button
+                  key={minutes}
+                  onClick={() => {
+                    setAutoLockMinutes(minutes);
+                    setShowAutoLockPicker(false);
+                  }}
+                  className={`w-full p-3 rounded-lg text-left transition-colors ${
+                    autoLockMinutes === minutes
+                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium'
+                      : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {minutes} 分钟
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowAutoLockPicker(false)}
+              className="w-full mt-4 p-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

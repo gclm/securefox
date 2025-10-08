@@ -34,7 +34,8 @@ pub fn create_app(vault_path: PathBuf, unlock_timeout: Duration) -> Router {
     // Public auth routes (no authentication required)
     let public_auth_routes = Router::new()
         .route("/unlock", post(handlers::auth::unlock))
-        .route("/status", get(handlers::auth::status));
+        .route("/status", get(handlers::auth::status))
+        .route("/version", get(handlers::health::version));
 
     // Protected routes (authentication required)
     let protected_routes = Router::new()
