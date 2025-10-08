@@ -9,7 +9,7 @@ import { ItemType, Item } from '@/types';
 import { findMatchingItems } from '@/utils/helpers';
 
 interface EntryListProps {
-  view: 'list' | 'favorites' | 'recent' | 'generator' | 'cards' | 'notes' | 'current';
+  view: 'list' | 'recent' | 'generator' | 'cards' | 'notes' | 'current' | 'favorites';
 }
 
 export const EntryList: React.FC<EntryListProps> = ({ view }) => {

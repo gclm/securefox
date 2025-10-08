@@ -8,7 +8,8 @@ import {
   HelpCircle,
   ChevronRight,
   Info,
-  Link
+  Link,
+  LucideIcon
 } from 'lucide-react';
 import { useUIStore, useAuthStore } from '@/store';
 import { AUTO_LOCK_OPTIONS } from '@/utils/constants';
@@ -19,6 +20,11 @@ import { getUserSettings, saveDefaultUriMatchType } from '@/lib/storage';
 interface SettingsViewProps {
   onBack: () => void;
 }
+
+type SettingItem = 
+  | { icon: LucideIcon; label: string; description: string; type: 'toggle'; value: boolean; action?: never; disabled?: never; }
+  | { icon: LucideIcon; label: string; description: string; disabled: true; type?: never; value?: never; action?: never; }
+  | { icon: LucideIcon; label: string; description: string; action: () => void | Promise<void>; type?: never; value?: never; disabled?: never; };
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
   const { autoLockMinutes, setAutoLockMinutes } = useUIStore();
@@ -66,7 +72,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  const settingGroups = [
+  const settingGroups: Array<{ title: string; items: SettingItem[] }> = [
     {
       title: '安全',
       items: [
@@ -153,8 +159,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
               {group.items.map((item, itemIndex) => (
                 <button
                   key={itemIndex}
-                  onClick={item.action}
-                  disabled={item.disabled}
+                  onClick={'action' in item ? item.action : undefined}
+                  disabled={'disabled' in item ? item.disabled : false}
                   className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
                     item.disabled 
                       ? 'opacity-50 cursor-not-allowed' 
@@ -174,7 +180,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
                     </div>
                   </div>
 
-                  {item.type === 'toggle' ? (
+                  {'type' in item && item.type === 'toggle' ? (
                     <div className={`w-11 h-6 rounded-full transition-colors ${
                       item.value ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
                     }`}>
@@ -182,7 +188,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
                         item.value ? 'translate-x-5' : 'translate-x-0.5'
                       } mt-0.5`} />
                     </div>
-                  ) : !item.disabled ? (
+                  ) : !('disabled' in item && item.disabled) ? (
                     <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                   ) : null}
                 </button>

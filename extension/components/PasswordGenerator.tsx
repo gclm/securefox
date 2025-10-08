@@ -70,7 +70,7 @@ export const PasswordGenerator: React.FC<PasswordGeneratorProps> = ({ onUsePassw
   const handleLengthChange = (value: string) => {
     const length = parseInt(value, 10);
     if (!isNaN(length) && length >= PASSWORD_DEFAULTS.MIN_LENGTH && length <= PASSWORD_DEFAULTS.MAX_LENGTH) {
-      setOptions(prev => ({ ...prev, length }));
+      setOptions({ ...options, length });
     }
   };
 
