@@ -113,7 +113,7 @@ export const PasswordGenerator: React.FC<PasswordGeneratorProps> = ({ onUsePassw
   const strength = calculateStrength();
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-4 p-4 pb-20">
       {!onUsePassword && (
         <div className="mb-2">
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">密码生成器</h3>
