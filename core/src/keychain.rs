@@ -34,7 +34,8 @@ impl Keychain {
             .map_err(|e| Error::Keychain(format!("Failed to create entry: {}", e)))?;
 
         // Convert key to base64 for storage
-        let encoded = base64::encode(key);
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        let encoded = STANDARD.encode(key);
 
         entry
             .set_password(&encoded)
@@ -53,7 +54,8 @@ impl Keychain {
             .map_err(|e| Error::Keychain(format!("Failed to retrieve key: {}", e)))?;
 
         // Decode from base64
-        let decoded = base64::decode(&encoded)
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        let decoded = STANDARD.decode(&encoded)
             .map_err(|e| Error::Keychain(format!("Invalid key format: {}", e)))?;
 
         Ok(Zeroizing::new(decoded))

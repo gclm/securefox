@@ -18,7 +18,7 @@ pub struct TotpConfig {
 impl TotpConfig {
     /// Create from otpauth:// URI
     pub fn from_uri(uri: &str) -> Result<Self> {
-        let totp = TOTP::from_url(uri).map_err(|e| Error::InvalidTotp)?;
+        let totp = TOTP::from_url(uri).map_err(|_e| Error::InvalidTotp)?;
 
         Ok(Self {
             secret: totp.get_secret_base32(),

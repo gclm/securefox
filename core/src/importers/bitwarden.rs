@@ -2,7 +2,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::errors::{Error, Result};
 use crate::models::{
@@ -113,9 +112,15 @@ pub struct BitwardenField {
 /// Bitwarden JSON importer
 pub struct BitwardenImporter;
 
+impl Default for BitwardenImporter {
+    fn default() -> Self {
+        Self
+    }
+}
+
 impl BitwardenImporter {
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 
     fn convert_folder(folder: &BitwardenFolder) -> Folder {
@@ -269,9 +274,15 @@ impl Importer for BitwardenImporter {
 /// Bitwarden JSON exporter
 pub struct BitwardenExporter;
 
+impl Default for BitwardenExporter {
+    fn default() -> Self {
+        Self
+    }
+}
+
 impl BitwardenExporter {
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 }
 

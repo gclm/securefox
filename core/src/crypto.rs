@@ -5,7 +5,7 @@ use aes_gcm_siv::{
     Aes256GcmSiv, Nonce,
 };
 use argon2::{
-    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{PasswordHasher, SaltString},
     Argon2, Params, Version,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -92,7 +92,7 @@ impl Default for KdfParams {
 
         Self {
             algorithm: KdfAlgorithm::Pbkdf2,
-            salt: BASE64.encode(&salt_bytes),
+            salt: BASE64.encode(salt_bytes),
             memory_kb: None,
             iterations: PBKDF2_ITERATIONS,
             parallelism: None,
