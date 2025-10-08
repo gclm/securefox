@@ -120,8 +120,33 @@ export default defineBackground(() => {
           case MESSAGE_TYPES.REQUEST_CREDENTIALS:
             // Get credentials for the requesting domain
             const domain = message.domain || (sender.tab?.url ? new URL(sender.tab.url).hostname : '');
-            const entries = await entriesApi.searchEntries({ domain });
-            sendResponse({ entries });
+            
+            try {
+              // Get all login entries
+              const allEntries = await entriesApi.getEntries();
+              
+              // Filter and sort by relevance using frontend matching logic
+              const matchingEntries = findMatchingItems(allEntries, sender.tab?.url || '');
+              
+              // Return with full credential info
+              const formattedEntries = matchingEntries.map(entry => ({
+                id: entry.id,
+                name: entry.name,
+                login: {
+                  username: entry.login?.username || '',
+                  password: entry.login?.password || '',
+                  totp: entry.login?.totp,
+                  uris: entry.login?.uris
+                },
+                favorite: entry.favorite || false,
+                revisionDate: entry.revisionDate
+              }));
+              
+              sendResponse({ entries: formattedEntries });
+            } catch (error) {
+              console.error('Failed to get credentials:', error);
+              sendResponse({ entries: [], error: 'Failed to fetch credentials' });
+            }
             break;
 
           case MESSAGE_TYPES.FILL_CREDENTIALS:

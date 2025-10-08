@@ -1,0 +1,67 @@
+/**
+ * SecureFox Content Script Styles
+ * 内联自动填充系统全局样式
+ */
+
+/* 图标按钮基础样式 */
+.securefox-autofill-icon {
+  /* 样式已在 InlineAutofillIcon.ts 中内联定义 */
+}
+
+/* 凭据菜单基础样式 */
+.securefox-credential-menu {
+  /* 样式已在 CredentialMenu.ts 中内联定义 */
+}
+
+/* 凭据项样式 */
+.securefox-credential-item:last-child {
+  border-bottom: none !important;
+}
+
+/* 滚动条样式优化 */
+.securefox-credential-menu ::-webkit-scrollbar {
+  width: 6px;
+}
+
+.securefox-credential-menu ::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+.securefox-credential-menu ::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.securefox-credential-menu ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* 暗黑模式支持（未来扩展）*/
+@media (prefers-color-scheme: dark) {
+  .securefox-credential-menu {
+    /* 暗黑模式样式待实现 */
+  }
+}
+
+/* 动画定义 */
+@keyframes securefox-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes securefox-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
