@@ -43,7 +43,8 @@ pub mod generate {
     use super::*;
     use passwords::PasswordGenerator;
     use colored::Colorize;
-    use clipboard::{ClipboardContext, ClipboardProvider};
+    use copypasta_ext::prelude::*;
+    use copypasta_ext::x11_fork::{ClipboardContext, ClipboardProvider};
     
     pub async fn execute(length: usize, numbers: bool, symbols: bool, copy: bool) -> Result<()> {
         let pg = PasswordGenerator {
@@ -165,7 +166,8 @@ pub mod sync {
 pub mod totp {
     use super::*;
     use securefox_core::totp::TotpConfig;
-    use clipboard::{ClipboardContext, ClipboardProvider};
+    use copypasta_ext::prelude::*;
+    use copypasta_ext::x11_fork::{ClipboardContext, ClipboardProvider};
     
     pub async fn execute(vault_path: Option<PathBuf>, item: String, copy: bool) -> Result<()> {
         // Placeholder - would load vault and find item
