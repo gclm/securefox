@@ -9,7 +9,11 @@ import { copyToClipboard, clearClipboardAfterDelay } from '@/utils/helpers';
 import { PASSWORD_DEFAULTS, UI_CONFIG } from '@/utils/constants';
 import { useUIStore } from '@/store';
 
-export const PasswordGenerator: React.FC = () => {
+interface PasswordGeneratorProps {
+  onUsePassword?: (password: string) => void;
+}
+
+export const PasswordGenerator: React.FC<PasswordGeneratorProps> = ({ onUsePassword }) => {
   const { showNotification } = useUIStore();
   const [password, setPassword] = useState('');
   const [copied, setCopied] = useState(false);
@@ -109,15 +113,15 @@ export const PasswordGenerator: React.FC = () => {
   const strength = calculateStrength();
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>密码生成器</CardTitle>
-        <CardDescription>
-          为您的账户创建强大且独一无二的密码
-        </CardDescription>
-      </CardHeader>
+    <div className="w-full space-y-4">
+      {!onUsePassword && (
+        <div className="mb-2">
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">密码生成器</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">为您的账户创建强大且独一无二的密码</p>
+        </div>
+      )}
       
-      <CardContent className="space-y-4">
+      <div className="space-y-4">
         {/* Generated Password Display */}
         <div className="relative">
           <Input
@@ -244,7 +248,18 @@ export const PasswordGenerator: React.FC = () => {
             生成新密码
           </Button>
         </div>
-      </CardContent>
-    </Card>
+        
+        {/* Use Password Button (when used in modal) */}
+        {onUsePassword && (
+          <Button
+            type="button"
+            onClick={() => onUsePassword(password)}
+            className="w-full mt-2"
+          >
+            使用此密码
+          </Button>
+        )}
+      </div>
+    </div>
   );
 };

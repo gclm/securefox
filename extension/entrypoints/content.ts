@@ -301,6 +301,21 @@ export default defineContentScript({
       return true;
     });
 
+    // Check for login forms and update badge
+    const updateBadge = async () => {
+      const passwordFields = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
+      
+      if (passwordFields.length > 0) {
+        // Page has login forms, request badge update
+        chrome.runtime.sendMessage({
+          type: 'UPDATE_BADGE',
+          domain: window.location.hostname,
+        }).catch(() => {
+          // Ignore if background is not ready
+        });
+      }
+    };
+
     // Initialize
     const initialize = () => {
       // Mark existing password fields
@@ -312,6 +327,9 @@ export default defineContentScript({
       // Add event listeners
       document.addEventListener('focusin', handleFocus, true);
       document.addEventListener('focusout', handleBlur, true);
+      
+      // Initial badge update
+      updateBadge();
     };
 
     // Watch for new password fields (SPA support)
@@ -320,6 +338,11 @@ export default defineContentScript({
       newPasswordFields.forEach(field => {
         field.setAttribute('data-securefox-processed', 'true');
       });
+      
+      // Update badge when new password fields appear
+      if (newPasswordFields.length > 0) {
+        updateBadge();
+      }
     });
 
     observer.observe(document.body, {

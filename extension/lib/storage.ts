@@ -5,12 +5,14 @@ import { STORAGE_KEYS, SESSION_CONFIG, type AutoLockOption } from '@/utils/const
  */
 export interface UserSettings {
   autoLockMinutes: AutoLockOption;
+  defaultUriMatchType?: number; // UriMatchType enum value
   theme?: 'light' | 'dark';
   notificationsEnabled?: boolean;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
   autoLockMinutes: SESSION_CONFIG.AUTO_LOCK_MINUTES as AutoLockOption,
+  defaultUriMatchType: 0, // Domain by default
   theme: 'light',
   notificationsEnabled: true,
 };
@@ -63,4 +65,19 @@ export async function getAutoLockMinutes(): Promise<number> {
  */
 export async function saveAutoLockMinutes(minutes: AutoLockOption): Promise<void> {
   await saveUserSettings({ autoLockMinutes: minutes });
+}
+
+/**
+ * Get default URI match type from storage
+ */
+export async function getDefaultUriMatchType(): Promise<number> {
+  const settings = await getUserSettings();
+  return settings.defaultUriMatchType || 0;
+}
+
+/**
+ * Save default URI match type to storage
+ */
+export async function saveDefaultUriMatchType(matchType: number): Promise<void> {
+  await saveUserSettings({ defaultUriMatchType: matchType });
 }

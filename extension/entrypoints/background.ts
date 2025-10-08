@@ -2,6 +2,7 @@ import { MESSAGE_TYPES, SESSION_CONFIG, STORAGE_KEYS } from '@/utils/constants';
 import * as authApi from '@/lib/api/auth';
 import * as entriesApi from '@/lib/api/entries';
 import { getAutoLockMinutes } from '@/lib/storage';
+import { findMatchingItems } from '@/utils/helpers';
 
 export default defineBackground(() => {
   console.log('SecureFox background service started', { id: browser.runtime.id });
@@ -48,6 +49,42 @@ export default defineBackground(() => {
     } catch (error) {
       // Fallback for browsers that don't support dynamic icons
       console.log('Failed to update icon:', error);
+    }
+  };
+
+  // Update badge based on matching entries for URL
+  const updateBadge = async (url: string, tabId?: number) => {
+    try {
+      const isUnlocked = await authApi.isUnlocked();
+      
+      if (!isUnlocked) {
+        // Clear badge if vault is locked
+        await chrome.action.setBadgeText({ text: '', tabId });
+        return;
+      }
+      
+      // Get all login entries and match using frontend logic
+      const allEntries = await entriesApi.getEntries();
+      const matchingEntries = findMatchingItems(allEntries, url);
+      const count = matchingEntries.length;
+      
+      // Update badge
+      if (count > 0) {
+        await chrome.action.setBadgeText({ 
+          text: count.toString(), 
+          tabId 
+        });
+        await chrome.action.setBadgeBackgroundColor({ 
+          color: '#3b82f6', // Blue
+          tabId 
+        });
+      } else {
+        await chrome.action.setBadgeText({ text: '', tabId });
+      }
+    } catch (error) {
+      console.error('Failed to update badge:', error);
+      // Clear badge on error
+      await chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
     }
   };
 
@@ -125,6 +162,14 @@ export default defineBackground(() => {
             sendResponse({ success: true });
             break;
 
+          case 'UPDATE_BADGE':
+            // Content script detected login form
+            if (message.domain && sender.tab?.id && sender.tab.url) {
+              await updateBadge(sender.tab.url, sender.tab.id);
+            }
+            sendResponse({ success: true });
+            break;
+
           default:
             sendResponse({ error: 'Unknown message type' });
         }
@@ -160,10 +205,32 @@ export default defineBackground(() => {
   });
 
   // Monitor user activity to reset auto-lock timer
-  chrome.tabs.onActivated.addListener(async () => {
+  chrome.tabs.onActivated.addListener(async (activeInfo) => {
     const isUnlocked = await authApi.isUnlocked();
     if (isUnlocked) {
       resetAutoLockTimer();
+    }
+    
+    // Update badge for newly activated tab
+    try {
+      const tab = await chrome.tabs.get(activeInfo.tabId);
+      if (tab.url) {
+        await updateBadge(tab.url, activeInfo.tabId);
+      }
+    } catch (error) {
+      console.error('Failed to update badge on tab activation:', error);
+    }
+  });
+
+  // Monitor tab URL changes to update badge
+  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    // Only update when URL changes
+    if (changeInfo.url && tab.url) {
+      try {
+        await updateBadge(tab.url, tabId);
+      } catch (error) {
+        console.error('Failed to update badge on tab update:', error);
+      }
     }
   });
 

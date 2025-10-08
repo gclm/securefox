@@ -8,7 +8,7 @@ import {
   FileText,
   Clock,
   Folder,
-  ChevronRight 
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,14 +17,12 @@ import { EntryList } from '@/components/EntryList';
 import { ItemType } from '@/types';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { SettingsView } from '@/components/SettingsView';
-import { DebugView } from '@/components/DebugView';
 import { AddItemModal } from '@/components/AddItemModal';
 import { LoginDetailView } from '@/components/LoginDetailView';
 import { NoteDetailView } from '@/components/NoteDetailView';
 
 export const MainView: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
   
   // 将所有hooks调用移到条件语句之前
   useKeyboardShortcuts();
@@ -77,24 +75,6 @@ export const MainView: React.FC = () => {
   if (detailViewType === 'note') {
     return <NoteDetailView onBack={closeDetailView} />;
   }
-  
-  // 如果显示调试页面，渲染调试视图
-  if (showDebug) {
-    return (
-      <div className="flex flex-col h-screen">
-        <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-b">
-          <button
-            onClick={() => setShowDebug(false)}
-            className="px-4 py-2 bg-blue-500 text-white rounded"
-          >
-            返回
-          </button>
-          <span className="font-semibold">调试视图</span>
-        </header>
-        <DebugView />
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
@@ -116,16 +96,6 @@ export const MainView: React.FC = () => {
             title="添加新项目"
           >
             <Plus className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          </button>
-          {/* 临时调试按钮 */}
-          <button
-            className="p-2 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-700 transition-colors"
-            onClick={() => setShowDebug(true)}
-            title="调试"
-          >
-            <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-            </svg>
           </button>
           <button
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -239,7 +209,7 @@ export const MainView: React.FC = () => {
             </div>
             <span className="text-xs mt-1">笔记</span>
           </button>
-
+          
           {/* Generator */}
           <button
             onClick={() => setActiveView('generator')}

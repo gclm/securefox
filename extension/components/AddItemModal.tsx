@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Key, CreditCard, FileText, User } from 'lucide-react';
+import { X, Key, CreditCard, FileText, User, Zap, Eye, EyeOff } from 'lucide-react';
 import { useUIStore, useVaultStore } from '@/store';
 import { ItemType } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { PasswordGenerator } from '@/components/PasswordGenerator';
 
 export const AddItemModal: React.FC = () => {
   const { isAddItemModalOpen, setAddItemModalOpen, showNotification } = useUIStore();
@@ -12,6 +13,8 @@ export const AddItemModal: React.FC = () => {
   
   const [itemType, setItemType] = useState<ItemType>(ItemType.Login);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPasswordGenerator, setShowPasswordGenerator] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   // 登录表单
   const [loginForm, setLoginForm] = useState({
@@ -48,6 +51,18 @@ export const AddItemModal: React.FC = () => {
     setCardForm({ name: '', cardholderName: '', number: '', expMonth: '', expYear: '', code: '', brand: '', notes: '' });
     setNoteForm({ name: '', notes: '' });
     setItemType(ItemType.Login);
+    setShowPasswordGenerator(false);
+    setShowPassword(false);
+  };
+
+  const handleUsePassword = (password: string) => {
+    setLoginForm({ ...loginForm, password });
+    setShowPasswordGenerator(false);
+    showNotification({
+      type: 'success',
+      title: '密码已填充',
+      message: '密码已自动填充到表单',
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -253,14 +268,44 @@ export const AddItemModal: React.FC = () => {
               </div>
               
               <div>
-                <Label htmlFor="login-password">密码</Label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                  placeholder="密码"
-                />
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="login-password">密码</Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordGenerator(!showPasswordGenerator)}
+                    className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 transition-colors"
+                  >
+                    <Zap className="w-3 h-3" />
+                    {showPasswordGenerator ? '隐藏生成器' : '生成密码'}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    placeholder="密码"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                    title="显示/隐藏密码"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <Eye className="w-4 h-4 text-gray-500" />
+                    )}
+                  </button>
+                </div>
+                {showPasswordGenerator && (
+                  <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <PasswordGenerator onUsePassword={handleUsePassword} />
+                  </div>
+                )}
               </div>
               
               <div>

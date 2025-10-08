@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   ArrowLeft,
@@ -7,11 +7,14 @@ import {
   Shield,
   HelpCircle,
   ChevronRight,
-  Info
+  Info,
+  Link
 } from 'lucide-react';
 import { useUIStore, useAuthStore } from '@/store';
 import { AUTO_LOCK_OPTIONS } from '@/utils/constants';
 import { getVersion } from '@/lib/api';
+import { UriMatchType } from '@/types';
+import { getUserSettings, saveDefaultUriMatchType } from '@/lib/storage';
 
 interface SettingsViewProps {
   onBack: () => void;
@@ -21,6 +24,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
   const { autoLockMinutes, setAutoLockMinutes } = useUIStore();
   const { lock } = useAuthStore();
   const [showAutoLockPicker, setShowAutoLockPicker] = useState(false);
+  const [showUriMatchPicker, setShowUriMatchPicker] = useState(false);
+  const [defaultUriMatchType, setDefaultUriMatchType] = useState<UriMatchType>(UriMatchType.Domain);
+
+  // Load default URI match type on mount
+  useEffect(() => {
+    getUserSettings().then(settings => {
+      setDefaultUriMatchType(settings.defaultUriMatchType || UriMatchType.Domain);
+    });
+  }, []);
+
+  const handleUriMatchTypeChange = async (matchType: UriMatchType) => {
+    setDefaultUriMatchType(matchType);
+    await saveDefaultUriMatchType(matchType);
+    setShowUriMatchPicker(false);
+  };
+
+  const getUriMatchTypeLabel = (matchType: UriMatchType): string => {
+    switch (matchType) {
+      case UriMatchType.Domain:
+        return '域名匹配';
+      case UriMatchType.Host:
+        return '主机名匹配';
+      case UriMatchType.StartsWith:
+        return '前缀匹配';
+      case UriMatchType.Exact:
+        return '精确匹配';
+      case UriMatchType.RegularExpression:
+        return '正则表达式';
+      case UriMatchType.Never:
+        return '从不匹配';
+      default:
+        return '未知';
+    }
+  };
   
   // Fetch version from API
   const { data: versionData, isLoading: isVersionLoading } = useQuery({
@@ -46,6 +83,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
           label: '自动锁定',
           description: `${autoLockMinutes} 分钟后自动锁定`,
           action: () => setShowAutoLockPicker(true)
+        },
+        {
+          icon: Link,
+          label: 'URI 匹配逻辑',
+          description: getUriMatchTypeLabel(defaultUriMatchType),
+          action: () => setShowUriMatchPicker(true)
         }
       ]
     },
@@ -201,6 +244,117 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
               className="w-full mt-4 p-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* URI Match Type Picker Modal */}
+      {showUriMatchPicker && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-end z-50"
+          onClick={() => setShowUriMatchPicker(false)}
+        >
+          <div 
+            className="w-full bg-white dark:bg-gray-800 rounded-t-xl p-4 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
+              URI 匹配逻辑
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              选择默认的网址匹配方式，与 Bitwarden 兼容
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => handleUriMatchTypeChange(UriMatchType.Domain)}
+                className={`w-full p-3 rounded-lg text-left transition-colors ${
+                  defaultUriMatchType === UriMatchType.Domain
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-2 border-blue-500'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                <div className="font-medium">域名匹配（推荐）</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  匹配基础域名，example.com 匹配 app.example.com
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleUriMatchTypeChange(UriMatchType.Host)}
+                className={`w-full p-3 rounded-lg text-left transition-colors ${
+                  defaultUriMatchType === UriMatchType.Host
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-2 border-blue-500'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                <div className="font-medium">主机名匹配</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  精确匹配完整主机名，包含端口
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleUriMatchTypeChange(UriMatchType.StartsWith)}
+                className={`w-full p-3 rounded-lg text-left transition-colors ${
+                  defaultUriMatchType === UriMatchType.StartsWith
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-2 border-blue-500'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                <div className="font-medium">前缀匹配</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  URL 以指定前缀开始
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleUriMatchTypeChange(UriMatchType.Exact)}
+                className={`w-full p-3 rounded-lg text-left transition-colors ${
+                  defaultUriMatchType === UriMatchType.Exact
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-2 border-blue-500'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                <div className="font-medium">精确匹配</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  完全匹配 URL
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleUriMatchTypeChange(UriMatchType.RegularExpression)}
+                className={`w-full p-3 rounded-lg text-left transition-colors ${
+                  defaultUriMatchType === UriMatchType.RegularExpression
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-2 border-blue-500'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                <div className="font-medium">正则表达式</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  使用正则表达式匹配（高级）
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleUriMatchTypeChange(UriMatchType.Never)}
+                className={`w-full p-3 rounded-lg text-left transition-colors ${
+                  defaultUriMatchType === UriMatchType.Never
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-2 border-blue-500'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                <div className="font-medium">从不匹配</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  禁用自动匹配
+                </div>
+              </button>
+            </div>
+            <button
+              onClick={() => setShowUriMatchPicker(false)}
+              className="w-full mt-4 p-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              关闭
             </button>
           </div>
         </div>
