@@ -63,6 +63,70 @@ pub struct ListItemsQuery {
     pub domain: Option<String>,
 }
 
+/// Request body for creating a new item
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateItemRequest {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub item_type: securefox_core::models::ItemType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub folder_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub favorite: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    
+    // Type-specific fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub login: Option<securefox_core::models::LoginData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card: Option<securefox_core::models::CardData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identity: Option<securefox_core::models::IdentityData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secure_note: Option<securefox_core::models::SecureNoteData>,
+    
+    // Custom fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fields: Option<Vec<securefox_core::models::CustomField>>,
+    
+    // Metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reprompt: Option<u8>,
+}
+
+/// Request body for updating an existing item
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateItemRequest {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub item_type: securefox_core::models::ItemType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub folder_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub favorite: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    
+    // Type-specific fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub login: Option<securefox_core::models::LoginData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card: Option<securefox_core::models::CardData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identity: Option<securefox_core::models::IdentityData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secure_note: Option<securefox_core::models::SecureNoteData>,
+    
+    // Custom fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fields: Option<Vec<securefox_core::models::CustomField>>,
+    
+    // Metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reprompt: Option<u8>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SyncResponse {
     pub success: bool,

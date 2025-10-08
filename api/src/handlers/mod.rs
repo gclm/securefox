@@ -49,9 +49,17 @@ pub mod auth_impl {
 
 // Simplified placeholder handlers for other modules
 pub mod items_impl {
-    use axum::{extract::{Path, Query, State}, Json};
+    use axum::{
+        extract::{Path, Query, State},
+        http::{Request, StatusCode},
+        Json,
+    };
+    use axum::extract::Extension;
+    use chrono::Utc;
     use securefox_core::models::Item;
-    use crate::{models::ListItemsQuery, ApiError, AppState, Result};
+    use uuid::Uuid;
+    use crate::models::{CreateItemRequest, ListItemsQuery, Session, UpdateItemRequest};
+    use crate::{ApiError, AppState, Result};
 
     pub async fn list_items(
         State(state): State<AppState>,
@@ -72,10 +80,38 @@ pub mod items_impl {
 
     pub async fn create_item(
         State(state): State<AppState>,
-        Json(item): Json<Item>,
+        Extension(session): Extension<Session>,
+        Json(req): Json<CreateItemRequest>,
     ) -> Result<Json<Item>> {
-        // Simplified - would need session from request extensions
-        Ok(Json(item))
+        let now = Utc::now();
+        
+        // Build complete Item with generated ID and timestamps
+        let item = Item {
+            id: Uuid::new_v4().to_string(),
+            item_type: req.item_type,
+            name: req.name,
+            folder_id: req.folder_id,
+            favorite: req.favorite.unwrap_or(false),
+            notes: req.notes,
+            login: req.login,
+            card: req.card,
+            identity: req.identity,
+            secure_note: req.secure_note,
+            fields: req.fields,
+            reprompt: req.reprompt,
+            creation_date: now,
+            revision_date: now,
+        };
+        
+        let item_clone = item.clone();
+        
+        // Save to vault with persistence
+        state.update_vault(&session.id, |vault| {
+            vault.add_item(item);
+            Ok(())
+        })?;
+        
+        Ok(Json(item_clone))
     }
 
     pub async fn get_item(
@@ -91,16 +127,62 @@ pub mod items_impl {
 
     pub async fn update_item(
         State(state): State<AppState>,
+        Extension(session): Extension<Session>,
         Path(id): Path<String>,
-        Json(item): Json<Item>,
+        Json(req): Json<UpdateItemRequest>,
     ) -> Result<Json<Item>> {
-        Ok(Json(item))
+        let updated_item = state.get_vault()
+            .ok_or(ApiError::VaultLocked)?
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .ok_or(ApiError::NotFound)?
+            .clone();
+        
+        // Build updated item with new revision date
+        let item = Item {
+            id: updated_item.id,
+            item_type: req.item_type,
+            name: req.name,
+            folder_id: req.folder_id,
+            favorite: req.favorite.unwrap_or(false),
+            notes: req.notes,
+            login: req.login,
+            card: req.card,
+            identity: req.identity,
+            secure_note: req.secure_note,
+            fields: req.fields,
+            reprompt: req.reprompt,
+            creation_date: updated_item.creation_date,
+            revision_date: Utc::now(),
+        };
+        
+        let item_clone = item.clone();
+        
+        // Update in vault with persistence
+        state.update_vault(&session.id, |vault| {
+            if let Some(existing) = vault.get_item_mut(&id) {
+                *existing = item;
+                Ok(())
+            } else {
+                Err(ApiError::NotFound)
+            }
+        })?;
+        
+        Ok(Json(item_clone))
     }
 
     pub async fn delete_item(
         State(state): State<AppState>,
+        Extension(session): Extension<Session>,
         Path(id): Path<String>,
     ) -> Result<()> {
+        state.update_vault(&session.id, |vault| {
+            vault.remove_item(&id)
+                .ok_or(ApiError::NotFound)?;
+            Ok(())
+        })?;
+        
         Ok(())
     }
 }
