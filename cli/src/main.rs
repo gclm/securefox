@@ -315,7 +315,7 @@ enum ServiceCommands {
     
     /// Internal: Actually run the service (hidden command)
     #[command(hide = true)]
-    _run {
+    Run {
         /// Port to listen on
         #[arg(short, long, default_value = "8787")]
         port: u16,
@@ -457,7 +457,7 @@ async fn main() -> Result<()> {
             ServiceCommands::Disable => {
                 commands::service_disable::execute().await
             }
-            ServiceCommands::_run { port, host, timeout } => {
+            ServiceCommands::Run { port, host, timeout } => {
                 commands::service_run::execute(vault_path, host, port, timeout).await
             }
         },

@@ -39,7 +39,7 @@ pub async fn execute(
         .arg("--vault")
         .arg(&vault_path)
         .arg("service")
-        .arg("_run")
+        .arg("run")
         .arg("--host")
         .arg(&host)
         .arg("--port")
