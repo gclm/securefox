@@ -1,4 +1,5 @@
 use anyhow::Result;
+use dialoguer::Confirm;
 
 pub async fn execute() -> Result<()> {
     #[cfg(target_os = "macos")]
@@ -45,29 +46,74 @@ async fn uninstall_launchd_service() -> Result<()> {
     std::fs::remove_file(&plist_path)
         .map_err(|e| anyhow::anyhow!("Failed to remove plist file: {}", e))?;
 
-    // Remove binary from /usr/local/bin
-    let binary_path = "/usr/local/bin/securefox";
-    if std::path::Path::new(binary_path).exists() {
-        println!("Removing binary from {}...", binary_path);
-        let remove_result = std::process::Command::new("sudo")
-            .arg("rm")
-            .arg("-f")
-            .arg(binary_path)
-            .status();
+    println!("✓ Service unloaded successfully");
+    println!();
 
-        match remove_result {
-            Ok(status) if status.success() => {
-                println!("✓ Binary removed from {}", binary_path);
-            }
-            _ => {
-                eprintln!("Warning: Failed to remove binary from {}", binary_path);
-                eprintln!("You may need to remove it manually.");
-            }
+    // Ask user about removing the binary
+    let binary_path = std::path::Path::new("/usr/local/bin/securefox");
+    if binary_path.exists() {
+        // Get current running binary path
+        let current_exe = std::env::current_exe().ok();
+        let current_canonical = current_exe.as_ref().and_then(|p| p.canonicalize().ok());
+        let target_canonical = binary_path.canonicalize().ok();
+
+        // Check if we're running from the same binary that would be deleted
+        let is_same_binary = current_canonical
+            .as_ref()
+            .zip(target_canonical.as_ref())
+            .map(|(a, b)| a == b)
+            .unwrap_or(false);
+
+        if is_same_binary {
+            println!(
+                "Note: You are currently running from {}",
+                binary_path.display()
+            );
         }
+
+        let should_remove = Confirm::new()
+            .with_prompt(format!(
+                "Do you want to remove the binary at {}?",
+                binary_path.display()
+            ))
+            .default(false)
+            .interact()
+            .unwrap_or(false);
+
+        if should_remove {
+            println!("Removing binary from {}...", binary_path.display());
+            let remove_result = std::process::Command::new("sudo")
+                .arg("rm")
+                .arg("-f")
+                .arg(binary_path)
+                .status();
+
+            match remove_result {
+                Ok(status) if status.success() => {
+                    println!("✓ Binary removed from {}", binary_path.display());
+                }
+                Ok(_) => {
+                    eprintln!("Warning: Failed to remove binary (non-zero exit code)");
+                    eprintln!("You may need to remove it manually with:");
+                    eprintln!("  sudo rm {}", binary_path.display());
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to execute rm command: {}", e);
+                    eprintln!("You may need to remove it manually with:");
+                    eprintln!("  sudo rm {}", binary_path.display());
+                }
+            }
+        } else {
+            println!("Binary at {} was kept.", binary_path.display());
+            println!("You can remove it later with:");
+            println!("  sudo rm {}", binary_path.display());
+        }
+    } else {
+        println!("No binary found at /usr/local/bin/securefox");
     }
 
     println!();
-    println!("✓ Service uninstalled successfully");
+    println!("✓ Service disabled successfully");
     println!("  The service will no longer start automatically");
 
     Ok(())
