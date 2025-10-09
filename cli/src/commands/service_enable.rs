@@ -1,5 +1,4 @@
 use anyhow::Result;
-use std::path::PathBuf;
 
 pub async fn execute() -> Result<()> {
     #[cfg(target_os = "macos")]
@@ -27,12 +26,12 @@ async fn install_launchd_service() -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to get current executable path: {}", e))?;
 
     // Install binary to /usr/local/bin
-    let target_path = PathBuf::from("/usr/local/bin/securefox");
+    let target_path = std::path::PathBuf::from("/usr/local/bin/securefox");
 
     println!("Installing securefox to {}...", target_path.display());
 
     // Check if /usr/local/bin exists, create if not
-    let target_dir = PathBuf::from("/usr/local/bin");
+    let target_dir = std::path::PathBuf::from("/usr/local/bin");
     if !target_dir.exists() {
         println!("Creating directory: {}", target_dir.display());
         std::process::Command::new("sudo")
