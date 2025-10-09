@@ -86,15 +86,12 @@ impl SyncDaemon {
     async fn perform_sync(vault_path: &PathBuf, mode: &SyncMode) -> Result<()> {
         let git_sync = GitSync::init(vault_path)?;
 
-        match mode {
-            SyncMode::Auto { .. } => {
-                // Auto mode: Pull at regular intervals (push happens on vault changes)
-                if git_sync.has_remote_updates()? {
-                    git_sync.pull()?;
-                    tracing::info!("Auto-sync: Pulled remote changes");
-                }
+        if let SyncMode::Auto { .. } = mode {
+            // Auto mode: Pull at regular intervals (push happens on vault changes)
+            if git_sync.has_remote_updates()? {
+                git_sync.pull()?;
+                tracing::info!("Auto-sync: Pulled remote changes");
             }
-            _ => {}
         }
 
         Ok(())

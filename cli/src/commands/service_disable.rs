@@ -1,4 +1,5 @@
 use anyhow::Result;
+#[cfg(target_os = "macos")]
 use dialoguer::Confirm;
 
 pub async fn execute() -> Result<()> {
