@@ -18,7 +18,10 @@ pub struct TotpConfig {
 impl TotpConfig {
     /// Create from otpauth:// URI
     pub fn from_uri(uri: &str) -> Result<Self> {
-        let totp = TOTP::from_url(uri).map_err(|_e| Error::InvalidTotp)?;
+        let totp = TOTP::from_url(uri).map_err(|e| {
+            eprintln!("[TOTP] from_url failed for '{}': {:?}", uri, e);
+            Error::InvalidTotp
+        })?;
 
         Ok(Self {
             secret: totp.get_secret_base32(),
@@ -152,9 +155,16 @@ mod tests {
 
     #[test]
     fn test_totp_from_uri() {
-        let uri = "otpauth://totp/Example:alice@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example";
-        let config = TotpConfig::from_uri(uri).unwrap();
-        assert_eq!(config.secret, "JBSWY3DPEHPK3PXP");
+        // Use a longer secret that meets minimum length requirement (128 bits / 16 bytes)
+        // JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP is 32 chars = 20 bytes
+        let secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
+        let uri = format!(
+            "otpauth://totp/alice@example.com?secret={}&issuer=Example",
+            secret
+        );
+
+        let config = TotpConfig::from_uri(&uri).unwrap();
+        assert_eq!(config.secret, secret);
         assert_eq!(config.issuer, Some("Example".to_string()));
     }
 
