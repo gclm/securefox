@@ -1,5 +1,6 @@
 //! SecureFox Core - Password management library
 
+pub mod config;
 pub mod crypto;
 pub mod errors;
 pub mod models;

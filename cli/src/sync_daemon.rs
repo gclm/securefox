@@ -1,6 +1,6 @@
 use anyhow::Result;
+use securefox_core::config::ConfigManager;
 use securefox_core::models::{SyncConfig, SyncMode};
-use securefox_core::VaultStorage;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -26,16 +26,14 @@ impl SyncDaemon {
         }
     }
 
-    /// Load sync configuration from vault
+    /// Load sync configuration from config file
     #[allow(dead_code)]
-    pub async fn load_config(&self, password: &str) -> Result<()> {
-        let storage = VaultStorage::with_path(self.vault_path.join("vault.sf"));
+    pub async fn load_config(&self) -> Result<()> {
+        let config_manager = ConfigManager::new()?;
+        let config_file = config_manager.load()?;
 
-        if storage.exists() {
-            let vault = storage.load(password)?;
-            let mut config = self.config.write().await;
-            *config = vault.sync_config.clone();
-        }
+        let mut config = self.config.write().await;
+        *config = config_file.sync_config;
 
         Ok(())
     }
@@ -89,21 +87,11 @@ impl SyncDaemon {
         let git_sync = GitSync::init(vault_path)?;
 
         match mode {
-            SyncMode::AutoPull { .. } => {
-                // Only pull
+            SyncMode::Auto { .. } => {
+                // Auto mode: Pull at regular intervals (push happens on vault changes)
                 if git_sync.has_remote_updates()? {
                     git_sync.pull()?;
                     tracing::info!("Auto-sync: Pulled remote changes");
-                }
-            }
-            SyncMode::Full { .. } => {
-                // Pull and push
-                let result = git_sync.smart_sync()?;
-                if result.pulled {
-                    tracing::info!("Auto-sync: Pulled remote changes");
-                }
-                if result.pushed {
-                    tracing::info!("Auto-sync: Pushed local changes");
                 }
             }
             _ => {}

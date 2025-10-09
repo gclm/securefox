@@ -13,8 +13,6 @@ pub struct Vault {
     pub items: Vec<Item>,
     pub version: String,
     pub sync_time: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sync_config: Option<SyncConfig>,
 }
 
 impl Vault {
@@ -25,7 +23,6 @@ impl Vault {
             items: Vec::new(),
             version: "1.0.0".to_string(),
             sync_time: Utc::now(),
-            sync_config: None,
         }
     }
 
@@ -320,24 +317,10 @@ impl SyncConfig {
         }
     }
 
-    pub fn auto_pull(interval_seconds: u64) -> Self {
+    pub fn auto(interval_seconds: u64) -> Self {
         Self {
             enabled: true,
-            mode: SyncMode::AutoPull { interval_seconds },
-        }
-    }
-
-    pub fn push_on_change() -> Self {
-        Self {
-            enabled: true,
-            mode: SyncMode::PushOnChange,
-        }
-    }
-
-    pub fn full(interval_seconds: u64) -> Self {
-        Self {
-            enabled: true,
-            mode: SyncMode::Full { interval_seconds },
+            mode: SyncMode::Auto { interval_seconds },
         }
     }
 }
@@ -355,17 +338,8 @@ pub enum SyncMode {
     /// Manual synchronization only
     Manual,
 
-    /// Automatically pull from remote at regular intervals
-    AutoPull {
-        #[serde(rename = "intervalSeconds")]
-        interval_seconds: u64,
-    },
-
-    /// Push to remote immediately when vault data changes
-    PushOnChange,
-
-    /// Full bidirectional sync at regular intervals
-    Full {
+    /// Automatic sync: pull at intervals + push on changes
+    Auto {
         #[serde(rename = "intervalSeconds")]
         interval_seconds: u64,
     },
@@ -373,21 +347,33 @@ pub enum SyncMode {
 
 impl SyncMode {
     pub fn is_auto_pull(&self) -> bool {
-        matches!(self, SyncMode::AutoPull { .. } | SyncMode::Full { .. })
+        matches!(self, SyncMode::Auto { .. })
     }
 
     pub fn is_push_on_change(&self) -> bool {
-        matches!(self, SyncMode::PushOnChange | SyncMode::Full { .. })
+        matches!(self, SyncMode::Auto { .. })
     }
 
     pub fn interval_seconds(&self) -> Option<u64> {
         match self {
-            SyncMode::AutoPull { interval_seconds } | SyncMode::Full { interval_seconds } => {
-                Some(*interval_seconds)
-            }
+            SyncMode::Auto { interval_seconds } => Some(*interval_seconds),
             _ => None,
         }
     }
+}
+
+/// Configuration file stored in ~/.securefox/config
+/// This contains sync-related configuration that doesn't need encryption
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncConfigFile {
+    /// Git remote URL
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_url: Option<String>,
+
+    /// Auto-sync configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_config: Option<SyncConfig>,
 }
 
 #[cfg(test)]

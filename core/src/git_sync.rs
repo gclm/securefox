@@ -4,6 +4,7 @@ use git2::{
     Cred, CredentialType, FetchOptions, PushOptions, RemoteCallbacks, Repository, Signature, Status,
 };
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::errors::{Error, Result};
@@ -24,7 +25,10 @@ impl GitSync {
         let repo = if repo_path.join(".git").exists() {
             Repository::open(&repo_path)?
         } else {
-            Repository::init(&repo_path)?
+            let repo = Repository::init(&repo_path)?;
+            // Create default .gitignore for new repos
+            Self::create_default_gitignore(&repo_path)?;
+            repo
         };
 
         let remote_name = env::var("SECUREFOX_REMOTE").unwrap_or_else(|_| "origin".to_string());
@@ -36,6 +40,21 @@ impl GitSync {
             remote_name,
             branch_name,
         })
+    }
+
+    /// Create default .gitignore file for vault directory
+    fn create_default_gitignore(repo_path: &Path) -> Result<()> {
+        let gitignore_path = repo_path.join(".gitignore");
+
+        // Don't overwrite existing .gitignore
+        if gitignore_path.exists() {
+            return Ok(());
+        }
+
+        let gitignore_content = "# SecureFox service files\nservice.err\nservice.pid\nservice.log\n\n# Backups\nbackups/\n\n# System files\n.DS_Store\nThumbs.db\n";
+
+        fs::write(&gitignore_path, gitignore_content)?;
+        Ok(())
     }
 
     /// Set remote URL

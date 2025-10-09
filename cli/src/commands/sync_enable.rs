@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use dialoguer::Password;
+use securefox_core::config::ConfigManager;
 use securefox_core::models::{SyncConfig, SyncMode};
 use securefox_core::VaultStorage;
 use std::path::PathBuf;
@@ -13,42 +13,30 @@ pub async fn execute(vault_path: Option<PathBuf>, mode: String, interval: u64) -
         anyhow::bail!("Vault not found. Please initialize a vault first.");
     }
 
-    // Get password to unlock vault
-    let password = Password::new().with_prompt("Master password").interact()?;
-
-    // Load vault
-    let mut vault = storage.load(&password).context("Failed to unlock vault")?;
-
     // Parse and set sync mode
     let sync_config = match mode.as_str() {
         "manual" => SyncConfig::manual(),
-        "auto-pull" => SyncConfig::auto_pull(interval),
-        "push-on-change" => SyncConfig::push_on_change(),
-        "full" => SyncConfig::full(interval),
-        _ => anyhow::bail!("Invalid sync mode. Use: manual, auto-pull, push-on-change, or full"),
+        "auto" => SyncConfig::auto(interval),
+        _ => anyhow::bail!("Invalid sync mode. Use: manual or auto"),
     };
 
-    vault.sync_config = Some(sync_config.clone());
-
-    // Save vault with updated config
-    storage
-        .save(&vault, &password)
-        .context("Failed to save vault")?;
+    // Update standalone config file
+    let config_manager = ConfigManager::new()?;
+    config_manager
+        .update_sync_config(Some(sync_config.clone()))
+        .context("Failed to update config file")?;
 
     // Print configuration
     println!("✓ Auto-sync enabled");
     println!("  Mode: {}", mode);
     match sync_config.mode {
-        SyncMode::AutoPull { interval_seconds } => {
+        SyncMode::Auto { interval_seconds } => {
             println!("  Pull interval: {} seconds", interval_seconds);
+            println!("  Automatic pull at intervals + push on vault changes");
         }
-        SyncMode::Full { interval_seconds } => {
-            println!("  Sync interval: {} seconds", interval_seconds);
+        SyncMode::Manual => {
+            println!("  Manual mode: No automatic synchronization");
         }
-        SyncMode::PushOnChange => {
-            println!("  Push: On vault changes");
-        }
-        _ => {}
     }
 
     Ok(())

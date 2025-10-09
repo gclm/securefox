@@ -4,6 +4,8 @@ use std::path::PathBuf;
 #[cfg(feature = "git")]
 use securefox_core::git_sync::GitSync;
 
+use securefox_core::config::ConfigManager;
+
 pub async fn execute(vault_path: Option<PathBuf>, remote_url: String) -> Result<()> {
     #[cfg(feature = "git")]
     {
@@ -14,6 +16,12 @@ pub async fn execute(vault_path: Option<PathBuf>, remote_url: String) -> Result<
         // Configure remote URL
         sync.set_remote(&remote_url)
             .context("Failed to set remote URL")?;
+
+        // Update standalone config file
+        let config_manager = ConfigManager::new()?;
+        config_manager
+            .update_remote_url(Some(remote_url.clone()))
+            .context("Failed to update config file")?;
 
         println!("✓ Git remote configured: {}", remote_url);
         Ok(())

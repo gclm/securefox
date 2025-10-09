@@ -128,20 +128,17 @@ enum SyncCommands {
 
     /// Enable auto-sync
     Enable {
-        /// Sync mode: manual, auto-pull, push-on-change, full
+        /// Sync mode: manual or auto
         #[arg(short, long, default_value = "manual")]
         mode: String,
 
-        /// Sync interval in seconds (for auto-pull and full modes)
-        #[arg(short, long, default_value = "300")]
+        /// Sync interval in seconds (for auto mode)
+        #[arg(short, long, default_value = "600")]
         interval: u64,
     },
 
     /// Disable auto-sync
     Disable,
-
-    /// Show auto-sync configuration
-    Show,
 }
 
 #[derive(Subcommand, Debug)]
@@ -369,7 +366,6 @@ async fn main() -> Result<()> {
                     commands::sync_enable::execute(vault_path, mode, interval).await
                 }
                 SyncCommands::Disable => commands::sync_disable::execute(vault_path).await,
-                SyncCommands::Show => commands::sync_show::execute(vault_path).await,
             },
         },
 
