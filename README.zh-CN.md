@@ -464,7 +464,7 @@ pnpm zip
 ## 📧 联系方式
 
 - **作者**：GCLM
-- **邮箱**：gclm@gclmit.club
+- **邮箱**：gclmit@163.com
 - **GitHub**：[@gclm](https://github.com/gclm)
 - **仓库**：[github.com/gclm/securefox](https://github.com/gclm/securefox)
 
