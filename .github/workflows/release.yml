@@ -57,12 +57,93 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Get previous tag
+        id: previous_tag
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          PREV_TAG=$(git tag --sort=-v:refname | grep -A1 "^${TAG}$" | tail -n1 || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            # If no previous tag, use first commit
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          echo "previous_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "Previous tag: $PREV_TAG"
+
+      - name: Generate What's Changed
+        id: changelog
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          PREV_TAG="${{ steps.previous_tag.outputs.previous_tag }}"
+          
+          echo "Generating changelog from $PREV_TAG to $TAG"
+          
+          # Create changelog file
+          echo "" > changelog.md
+          
+          # Group commits by type
+          FEATURES=$(git log $PREV_TAG..$TAG --pretty=format:"%s" --no-merges | grep -E "^feat:|^feature:" | sed 's/^feat: /- /' | sed 's/^feature: /- /' || true)
+          FIXES=$(git log $PREV_TAG..$TAG --pretty=format:"%s" --no-merges | grep -E "^fix:|^bugfix:" | sed 's/^fix: /- /' | sed 's/^bugfix: /- /' || true)
+          DOCS=$(git log $PREV_TAG..$TAG --pretty=format:"%s" --no-merges | grep -E "^docs:|^doc:" | sed 's/^docs: /- /' | sed 's/^doc: /- /' || true)
+          REFACTOR=$(git log $PREV_TAG..$TAG --pretty=format:"%s" --no-merges | grep -E "^refactor:|^perf:|^style:" | sed 's/^refactor: /- /' | sed 's/^perf: /- /' | sed 's/^style: /- /' || true)
+          OTHERS=$(git log $PREV_TAG..$TAG --pretty=format:"%s" --no-merges | grep -vE "^(feat|feature|fix|bugfix|docs|doc|refactor|perf|style|chore|release):" | sed 's/^/- /' || true)
+          
+          # Build changelog
+          if [ ! -z "$FEATURES" ]; then
+            echo "#### 🚀 Features" >> changelog.md
+            echo "" >> changelog.md
+            echo "$FEATURES" >> changelog.md
+            echo "" >> changelog.md
+          fi
+          
+          if [ ! -z "$FIXES" ]; then
+            echo "#### 🐛 Bug Fixes" >> changelog.md
+            echo "" >> changelog.md
+            echo "$FIXES" >> changelog.md
+            echo "" >> changelog.md
+          fi
+          
+          if [ ! -z "$DOCS" ]; then
+            echo "#### 📝 Documentation" >> changelog.md
+            echo "" >> changelog.md
+            echo "$DOCS" >> changelog.md
+            echo "" >> changelog.md
+          fi
+          
+          if [ ! -z "$REFACTOR" ]; then
+            echo "#### ♻️ Code Refactoring" >> changelog.md
+            echo "" >> changelog.md
+            echo "$REFACTOR" >> changelog.md
+            echo "" >> changelog.md
+          fi
+          
+          if [ ! -z "$OTHERS" ]; then
+            echo "#### 📦 Other Changes" >> changelog.md
+            echo "" >> changelog.md
+            echo "$OTHERS" >> changelog.md
+            echo "" >> changelog.md
+          fi
+          
+          # If no categorized changes, list all commits
+          if [ ! -s changelog.md ]; then
+            echo "#### 📦 Changes" >> changelog.md
+            echo "" >> changelog.md
+            git log $PREV_TAG..$TAG --pretty=format:"- %s" --no-merges >> changelog.md
+            echo "" >> changelog.md
+          fi
+          
+          cat changelog.md
+
       - name: Generate release notes
         id: notes
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
           echo "## SecureFox ${TAG}" > release_notes.md
           echo "" >> release_notes.md
+          
+          echo "### ✨ What's Changed" >> release_notes.md
+          echo "" >> release_notes.md
+          cat changelog.md >> release_notes.md
+          
           echo "### 🚀 Downloads" >> release_notes.md
           echo "" >> release_notes.md
           echo "#### CLI Binaries" >> release_notes.md
@@ -90,9 +171,10 @@ jobs:
           echo "securefox version" >> release_notes.md
           echo "\`\`\`" >> release_notes.md
           echo "" >> release_notes.md
-          echo "### ✨ What's Changed" >> release_notes.md
+          echo "---" >> release_notes.md
           echo "" >> release_notes.md
-          echo "See commit history for details." >> release_notes.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.previous_tag.outputs.previous_tag }}...${TAG}" >> release_notes.md
+          
           cat release_notes.md
 
       - name: Create GitHub Release
