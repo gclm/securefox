@@ -479,26 +479,52 @@ export default defineContentScript({
             }
         };
 
-        // Prompt user to save password
-        const promptSavePassword = async (credentials: { username: string; password: string; url: string }) => {
-            // Check if vault is unlocked before showing prompt
-            try {
-                const response = await chrome.runtime.sendMessage({type: MESSAGE_TYPES.GET_STATUS});
-
-                if (!response.isUnlocked) {
-                    // Vault is locked, show notification to unlock first
-                    showNotification('请先解锁密码库以保存密码', 'info');
-                    return;
-                }
-
-                // Backend will handle duplicate detection, just show the prompt
-                showSavePrompt(credentials, false);
-            } catch (error) {
-                console.error('Failed to check lock status:', error);
-                // If unable to check status, still show the prompt
-                showSavePrompt(credentials, false);
+    // Prompt user to save password
+    const promptSavePassword = async (credentials: { username: string; password: string; url: string }) => {
+      // Check if vault is unlocked before showing prompt
+      try {
+        const response = await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.GET_STATUS });
+        
+        if (!response.isUnlocked) {
+          // Vault is locked, show notification to unlock first
+          showNotification('请先解锁密码库以保存密码', 'info');
+          return;
+        }
+        
+        // Check if entry already exists for this domain and username
+        const existingResponse = await chrome.runtime.sendMessage({
+          type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
+          domain: window.location.hostname,
+        });
+        
+        let isUpdate = false;
+        if (existingResponse && existingResponse.entries && existingResponse.entries.length > 0) {
+          // Check if any entry matches the username
+          const matchingEntry = existingResponse.entries.find((entry: any) => 
+            entry.login?.username === credentials.username
+          );
+          
+          if (matchingEntry) {
+            // Check if password is different
+            if (matchingEntry.login?.password !== credentials.password) {
+              isUpdate = true;
+              console.log('SecureFox: Found existing entry with different password, will show update prompt');
+            } else {
+              // Same password, no need to save
+              console.log('SecureFox: Entry already exists with same password, skipping prompt');
+              return;
             }
-        };
+          }
+        }
+        
+        // Show save or update prompt
+        showSavePrompt(credentials, isUpdate);
+      } catch (error) {
+        console.error('Failed to check lock status:', error);
+        // If unable to check status, still show the prompt
+        showSavePrompt(credentials, false);
+      }
+    };
 
         // Show save/update password prompt
         const showSavePrompt = (credentials: {
