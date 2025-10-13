@@ -193,7 +193,7 @@ pub fn encrypt(plaintext: &[u8], key: &EncryptionKey) -> Result<EncryptedData> {
 
     Ok(EncryptedData {
         kdf_params: KdfParams::default(),
-        nonce: BASE64.encode(nonce.as_slice()),
+        nonce: BASE64.encode(nonce),
         ciphertext: BASE64.encode(&ciphertext),
     })
 }
@@ -223,7 +223,7 @@ pub fn encrypt_with_password_and_kdf(
 
     Ok(EncryptedData {
         kdf_params,
-        nonce: BASE64.encode(nonce.as_slice()),
+        nonce: BASE64.encode(nonce),
         ciphertext: BASE64.encode(&ciphertext),
     })
 }
@@ -245,7 +245,7 @@ pub fn decrypt(encrypted: &EncryptedData, key: &EncryptionKey) -> Result<Vec<u8>
         )));
     }
 
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    let nonce = <&Nonce>::from(nonce_bytes.as_slice());
 
     let ciphertext = BASE64
         .decode(&encrypted.ciphertext)
