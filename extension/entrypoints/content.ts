@@ -1,251 +1,267 @@
-import { MESSAGE_TYPES } from '@/utils/constants';
-import { InlineAutofillIcon } from './content/InlineAutofillIcon';
-import { CredentialMenu } from './content/CredentialMenu';
+import {MESSAGE_TYPES} from '@/utils/constants';
+import {InlineAutofillIcon} from './content/InlineAutofillIcon';
+import {CredentialMenu} from './content/CredentialMenu';
 
 export default defineContentScript({
-  matches: ['<all_urls>'],
-  runAt: 'document_idle',
-  main() {
-    console.log('SecureFox content script loaded - Inline Autofill System');
+    matches: ['<all_urls>'],
+    runAt: 'document_idle',
+    main() {
+        console.log('SecureFox content script loaded - Inline Autofill System');
 
-    // Track current focused element and menu state
-    let currentFocusedElement: HTMLInputElement | null = null;
-    let currentMenu: CredentialMenu | null = null;
-    const fieldIconMap = new WeakMap<HTMLInputElement, InlineAutofillIcon>();
+        // Track current focused element and menu state
+        let currentFocusedElement: HTMLInputElement | null = null;
+        let currentMenu: CredentialMenu | null = null;
+        const fieldIconMap = new WeakMap<HTMLInputElement, InlineAutofillIcon>();
 
-    // Detect login form fields (only username fields for icon display)
-    const detectLoginFields = (): HTMLInputElement[] => {
-      const fields: HTMLInputElement[] = [];
-      
-      // Find all password fields
-      const passwordFields = document.querySelectorAll<HTMLInputElement>(
-        'input[type="password"]:not([data-securefox-processed])'
-      );
-      
-      passwordFields.forEach(passwordField => {
-        // Mark password field as processed (no icon needed)
-        passwordField.setAttribute('data-securefox-processed', 'true');
-        
-        // Find associated username field
-        const usernameField = detectUsernameField(passwordField);
-        
-        // Only add username field to list (for icon display)
-        if (usernameField && !usernameField.hasAttribute('data-securefox-processed')) {
-          fields.push(usernameField);
-        }
-      });
-      
-      return fields;
-    };
+        // Detect login form fields (only username fields for icon display)
+        const detectLoginFields = (): HTMLInputElement[] => {
+            const fields: HTMLInputElement[] = [];
 
-    // Detect username fields (near password fields)
-    const detectUsernameField = (passwordField: HTMLInputElement): HTMLInputElement | null => {
-      const form = passwordField.closest('form');
-      const searchScope = form || document;
-      
-      // Common username field patterns
-      const usernameSelectors = [
-        'input[type="email"]',
-        'input[type="text"][name*="user" i]',
-        'input[type="text"][name*="email" i]',
-        'input[type="text"][name*="login" i]',
-        'input[type="text"][autocomplete="username"]',
-        'input[type="text"][id*="user" i]',
-        'input[type="text"][id*="email" i]',
-      ];
+            // Find all password fields
+            const passwordFields = document.querySelectorAll<HTMLInputElement>(
+                'input[type="password"]:not([data-securefox-processed])'
+            );
 
-      for (const selector of usernameSelectors) {
-        const field = searchScope.querySelector<HTMLInputElement>(selector);
-        if (field && !field.disabled && field !== passwordField) {
-          // Check if field appears before password field
-          const passwordRect = passwordField.getBoundingClientRect();
-          const fieldRect = field.getBoundingClientRect();
-          
-          if (fieldRect.top <= passwordRect.top) {
-            return field;
-          }
-        }
-      }
+            passwordFields.forEach(passwordField => {
+                // Mark password field as processed (no icon needed)
+                passwordField.setAttribute('data-securefox-processed', 'true');
 
-      // Fallback: find the closest text input before the password field
-      const allInputs = Array.from(searchScope.querySelectorAll<HTMLInputElement>('input[type="text"], input[type="email"]'));
-      const passwordIndex = Array.from(searchScope.querySelectorAll('input')).indexOf(passwordField);
-      
-      for (let i = passwordIndex - 1; i >= 0; i--) {
-        const input = searchScope.querySelectorAll('input')[i] as HTMLInputElement;
-        if ((input.type === 'text' || input.type === 'email') && !input.disabled) {
-          return input;
-        }
-      }
+                // Find associated username field
+                const usernameField = detectUsernameField(passwordField);
 
-      return null;
-    };
+                // Only add username field to list (for icon display)
+                if (usernameField && !usernameField.hasAttribute('data-securefox-processed')) {
+                    fields.push(usernameField);
+                }
+            });
 
-    // Create inline autofill icon for a field
-    const createInlineIcon = (element: HTMLInputElement) => {
-      // Check if icon already exists
-      if (fieldIconMap.has(element)) {
-        return;
-      }
-      
-      // Create icon with click handler
-      const icon = new InlineAutofillIcon(element, async () => {
-        await showCredentialMenu(element);
-      });
-      
-      // Store reference
-      fieldIconMap.set(element, icon);
-      
-      // Show icon
-      icon.show();
-    };
-    
-    // Show credential selection menu
-    const showCredentialMenu = async (element: HTMLInputElement) => {
-      try {
-        // Close existing menu
-        if (currentMenu) {
-          currentMenu.destroy();
-          currentMenu = null;
-        }
-        
-        // Request credentials from background
-        const response = await chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
-          domain: window.location.hostname,
-        });
-        
-        if (!response || !response.entries) {
-          showNotification('无法获取凭据');
-          return;
-        }
-        
-        // Create and show menu
-        currentMenu = new CredentialMenu(
-          response.entries,
-          element,
-          (credential) => {
-            fillCredentials(credential);
-          }
-        );
-        
-        currentMenu.show();
-      } catch (error) {
-        console.error('Failed to show credential menu:', error);
-        showNotification('获取凭据失败');
-      }
-    };
+            return fields;
+        };
 
-    // Fill credentials with enhanced animation
-    const fillCredentials = (entry: any) => {
-      const passwordField = document.querySelector<HTMLInputElement>('input[type="password"]:not([disabled])');
-      
-      if (!passwordField) {
-        showNotification('未找到密码输入框', 'warning');
-        return;
-      }
+        // Detect username fields (near password fields)
+        const detectUsernameField = (passwordField: HTMLInputElement): HTMLInputElement | null => {
+            const form = passwordField.closest('form');
+            const searchScope = form || document;
 
-      // Find username field
-      const usernameField = detectUsernameField(passwordField);
-      
-      // Animate and fill fields
-      const fillField = (field: HTMLInputElement, value: string) => {
-        // Add flash animation
-        field.style.transition = 'background-color 0.3s ease';
-        field.style.backgroundColor = '#dbeafe';
-        
-        // Fill value
-        field.value = value;
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-        
-        // Remove flash after animation
-        setTimeout(() => {
-          field.style.backgroundColor = '';
-          setTimeout(() => {
-            field.style.transition = '';
-          }, 300);
-        }, 300);
-      };
+            // Common username field patterns
+            const usernameSelectors = [
+                'input[type="email"]',
+                'input[type="text"][name*="user" i]',
+                'input[type="text"][name*="email" i]',
+                'input[type="text"][name*="login" i]',
+                'input[type="text"][autocomplete="username"]',
+                'input[type="text"][id*="user" i]',
+                'input[type="text"][id*="email" i]',
+            ];
 
-      // Fill username
-      if (entry.login?.username && usernameField) {
-        fillField(usernameField, entry.login.username);
-      }
+            for (const selector of usernameSelectors) {
+                const field = searchScope.querySelector<HTMLInputElement>(selector);
+                if (field && !field.disabled && field !== passwordField) {
+                    // Check if field appears before password field
+                    const passwordRect = passwordField.getBoundingClientRect();
+                    const fieldRect = field.getBoundingClientRect();
 
-      // Fill password
-      if (entry.login?.password) {
-        setTimeout(() => {
-          fillField(passwordField, entry.login.password);
-        }, 100);
-      }
-
-      // Show success notification
-      showNotification(`已填充 ${entry.name}`, 'success');
-
-      // Check for TOTP and copy to clipboard if present
-      if (entry.login?.totp) {
-        requestTOTP(entry.id);
-      }
-    };
-
-    // Request and handle TOTP
-    const requestTOTP = async (entryId: string) => {
-      try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'GET_TOTP',
-          entryId,
-        });
-
-        if (response.code) {
-          // Try to find and fill TOTP field
-          const totpSelectors = [
-            'input[name*="totp" i]',
-            'input[name*="2fa" i]',
-            'input[name*="code" i]',
-            'input[name*="verification" i]',
-            'input[inputmode="numeric"]',
-            'input[maxlength="6"]',
-          ];
-
-          let filled = false;
-          for (const selector of totpSelectors) {
-            const field = document.querySelector<HTMLInputElement>(selector);
-            if (field && !field.disabled && field.value === '') {
-              field.value = response.code;
-              field.dispatchEvent(new Event('input', { bubbles: true }));
-              field.dispatchEvent(new Event('change', { bubbles: true }));
-              filled = true;
-              break;
+                    if (fieldRect.top <= passwordRect.top) {
+                        return field;
+                    }
+                }
             }
-          }
 
-          if (!filled) {
-            // Copy to clipboard if no field found
-            navigator.clipboard.writeText(response.code);
-            showNotification(`双因素验证码已复制: ${response.code}`);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to get TOTP:', error);
-      }
-    };
+            // Fallback: find the closest text input before the password field
+            const allInputs = Array.from(searchScope.querySelectorAll<HTMLInputElement>('input[type="text"], input[type="email"]'));
+            const passwordIndex = Array.from(searchScope.querySelectorAll('input')).indexOf(passwordField);
 
-    // Show enhanced notification
-    const showNotification = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
-      const notification = document.createElement('div');
-      
-      // Color schemes for different types
-      const colors = {
-        success: { bg: '#10b981', icon: '✓' },
-        error: { bg: '#ef4444', icon: '✕' },
-        warning: { bg: '#f59e0b', icon: '⚠' },
-        info: { bg: '#3b82f6', icon: 'ℹ' }
-      };
-      
-      const color = colors[type];
-      
-      notification.style.cssText = `
+            for (let i = passwordIndex - 1; i >= 0; i--) {
+                const input = searchScope.querySelectorAll('input')[i] as HTMLInputElement;
+                if ((input.type === 'text' || input.type === 'email') && !input.disabled) {
+                    return input;
+                }
+            }
+
+            return null;
+        };
+
+        // Create inline autofill icon for a field (only if matching credentials exist)
+        const createInlineIcon = async (element: HTMLInputElement) => {
+            // Check if icon already exists
+            if (fieldIconMap.has(element)) {
+                return;
+            }
+
+            // Check if there are any matching credentials for this page
+            try {
+                const response = await chrome.runtime.sendMessage({
+                    type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
+                    domain: window.location.hostname,
+                });
+
+                // Only create icon if we have matching entries
+                if (!response || !response.entries || response.entries.length === 0) {
+                    return; // No matching credentials, don't show icon
+                }
+
+                // Create icon with click handler
+                const icon = new InlineAutofillIcon(element, async () => {
+                    await showCredentialMenu(element);
+                });
+
+                // Store reference
+                fieldIconMap.set(element, icon);
+
+                // Show icon
+                icon.show();
+            } catch (error) {
+                console.error('Failed to check for matching credentials:', error);
+                // On error, don't show the icon to be safe
+            }
+        };
+
+        // Show credential selection menu
+        const showCredentialMenu = async (element: HTMLInputElement) => {
+            try {
+                // Close existing menu
+                if (currentMenu) {
+                    currentMenu.destroy();
+                    currentMenu = null;
+                }
+
+                // Request credentials from background
+                const response = await chrome.runtime.sendMessage({
+                    type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
+                    domain: window.location.hostname,
+                });
+
+                if (!response || !response.entries) {
+                    showNotification('无法获取凭据');
+                    return;
+                }
+
+                // Create and show menu
+                currentMenu = new CredentialMenu(
+                    response.entries,
+                    element,
+                    (credential) => {
+                        fillCredentials(credential);
+                    }
+                );
+
+                currentMenu.show();
+            } catch (error) {
+                console.error('Failed to show credential menu:', error);
+                showNotification('获取凭据失败');
+            }
+        };
+
+        // Fill credentials with enhanced animation
+        const fillCredentials = (entry: any) => {
+            const passwordField = document.querySelector<HTMLInputElement>('input[type="password"]:not([disabled])');
+
+            if (!passwordField) {
+                showNotification('未找到密码输入框', 'warning');
+                return;
+            }
+
+            // Find username field
+            const usernameField = detectUsernameField(passwordField);
+
+            // Animate and fill fields
+            const fillField = (field: HTMLInputElement, value: string) => {
+                // Add flash animation
+                field.style.transition = 'background-color 0.3s ease';
+                field.style.backgroundColor = '#dbeafe';
+
+                // Fill value
+                field.value = value;
+                field.dispatchEvent(new Event('input', {bubbles: true}));
+                field.dispatchEvent(new Event('change', {bubbles: true}));
+
+                // Remove flash after animation
+                setTimeout(() => {
+                    field.style.backgroundColor = '';
+                    setTimeout(() => {
+                        field.style.transition = '';
+                    }, 300);
+                }, 300);
+            };
+
+            // Fill username
+            if (entry.login?.username && usernameField) {
+                fillField(usernameField, entry.login.username);
+            }
+
+            // Fill password
+            if (entry.login?.password) {
+                setTimeout(() => {
+                    fillField(passwordField, entry.login.password);
+                }, 100);
+            }
+
+            // Show success notification
+            showNotification(`已填充 ${entry.name}`, 'success');
+
+            // Check for TOTP and copy to clipboard if present
+            if (entry.login?.totp) {
+                requestTOTP(entry.id);
+            }
+        };
+
+        // Request and handle TOTP
+        const requestTOTP = async (entryId: string) => {
+            try {
+                const response = await chrome.runtime.sendMessage({
+                    type: 'GET_TOTP',
+                    entryId,
+                });
+
+                if (response.code) {
+                    // Try to find and fill TOTP field
+                    const totpSelectors = [
+                        'input[name*="totp" i]',
+                        'input[name*="2fa" i]',
+                        'input[name*="code" i]',
+                        'input[name*="verification" i]',
+                        'input[inputmode="numeric"]',
+                        'input[maxlength="6"]',
+                    ];
+
+                    let filled = false;
+                    for (const selector of totpSelectors) {
+                        const field = document.querySelector<HTMLInputElement>(selector);
+                        if (field && !field.disabled && field.value === '') {
+                            field.value = response.code;
+                            field.dispatchEvent(new Event('input', {bubbles: true}));
+                            field.dispatchEvent(new Event('change', {bubbles: true}));
+                            filled = true;
+                            break;
+                        }
+                    }
+
+                    if (!filled) {
+                        // Copy to clipboard if no field found
+                        navigator.clipboard.writeText(response.code);
+                        showNotification(`双因素验证码已复制: ${response.code}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to get TOTP:', error);
+            }
+        };
+
+        // Show enhanced notification
+        const showNotification = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+            const notification = document.createElement('div');
+
+            // Color schemes for different types
+            const colors = {
+                success: {bg: '#10b981', icon: '✓'},
+                error: {bg: '#ef4444', icon: '✕'},
+                warning: {bg: '#f59e0b', icon: '⚠'},
+                info: {bg: '#3b82f6', icon: 'ℹ'}
+            };
+
+            const color = colors[type];
+
+            notification.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
@@ -264,15 +280,15 @@ export default defineContentScript({
         animation: slideIn 0.3s ease;
         max-width: 320px;
       `;
-      
-      notification.innerHTML = `
+
+            notification.innerHTML = `
         <span style="font-size: 16px; font-weight: 700;">${color.icon}</span>
         <span>${message}</span>
       `;
 
-      // Add animation
-      const style = document.createElement('style');
-      style.textContent = `
+            // Add animation
+            const style = document.createElement('style');
+            style.textContent = `
         @keyframes slideIn {
           from { transform: translateX(100%); opacity: 0; }
           to { transform: translateX(0); opacity: 1; }
@@ -282,184 +298,224 @@ export default defineContentScript({
           to { transform: translateX(100%); opacity: 0; }
         }
       `;
-      document.head.appendChild(style);
+            document.head.appendChild(style);
 
-      document.body.appendChild(notification);
+            document.body.appendChild(notification);
 
-      // Auto remove
-      setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => {
-          notification.remove();
-        }, 300);
-      }, 3000);
-    };
+            // Auto remove
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 3000);
+        };
 
-    // Handle focus events
-    const handleFocus = (event: FocusEvent) => {
-      const target = event.target as HTMLInputElement;
-      
-      // Track focused element
-      if (target.type === 'password' || target.type === 'email' || target.type === 'text') {
-        currentFocusedElement = target;
-      }
-    };
+        // Handle focus events
+        const handleFocus = (event: FocusEvent) => {
+            const target = event.target as HTMLInputElement;
 
-    const handleBlur = (event: FocusEvent) => {
-      // Clear focused element
-      currentFocusedElement = null;
-    };
+            // Track focused element
+            if (target.type === 'password' || target.type === 'email' || target.type === 'text') {
+                currentFocusedElement = target;
+            }
+        };
 
-    // Listen for messages from background
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      switch (message.type) {
-        case MESSAGE_TYPES.FILL_CREDENTIALS:
-          fillCredentials({ login: message.data });
-          sendResponse({ success: true });
-          break;
+        const handleBlur = (event: FocusEvent) => {
+            // Clear focused element
+            currentFocusedElement = null;
+        };
 
-        case 'INSERT_GENERATED_PASSWORD':
-          if (currentFocusedElement) {
-            currentFocusedElement.value = message.data.password;
-            currentFocusedElement.dispatchEvent(new Event('input', { bubbles: true }));
-            currentFocusedElement.dispatchEvent(new Event('change', { bubbles: true }));
-            showNotification('密码已生成并插入');
-          }
-          sendResponse({ success: true });
-          break;
+        // Listen for messages from background
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            switch (message.type) {
+                case MESSAGE_TYPES.FILL_CREDENTIALS:
+                    fillCredentials({login: message.data});
+                    sendResponse({success: true});
+                    break;
 
-        default:
-          sendResponse({ error: 'Unknown message type' });
-      }
-      return true;
-    });
+                case 'INSERT_GENERATED_PASSWORD':
+                    if (currentFocusedElement) {
+                        currentFocusedElement.value = message.data.password;
+                        currentFocusedElement.dispatchEvent(new Event('input', {bubbles: true}));
+                        currentFocusedElement.dispatchEvent(new Event('change', {bubbles: true}));
+                        showNotification('密码已生成并插入');
+                    }
+                    sendResponse({success: true});
+                    break;
 
-    // Check for login forms and update badge
-    const updateBadge = async () => {
-      const passwordFields = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
-      
-      if (passwordFields.length > 0) {
-        // Page has login forms, request badge update
-        chrome.runtime.sendMessage({
-          type: 'UPDATE_BADGE',
-          domain: window.location.hostname,
-        }).catch(() => {
-          // Ignore if background is not ready
+                default:
+                    sendResponse({error: 'Unknown message type'});
+            }
+            return true;
         });
-      }
-    };
 
-    // Keyboard shortcut handler (Ctrl+Shift+L)
-    const handleKeyboardShortcut = (event: KeyboardEvent) => {
-      // Ctrl+Shift+L or Cmd+Shift+L (Mac)
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'L') {
-        event.preventDefault();
-        
-        // If an input field is focused, show menu for it
-        if (currentFocusedElement) {
-          showCredentialMenu(currentFocusedElement);
-          return;
-        }
-        
-        // Otherwise, find the first login field and show menu
-        const loginFields = detectLoginFields();
-        if (loginFields.length > 0) {
-          const firstField = loginFields.find(f => f.type === 'password') || loginFields[0];
-          firstField.focus();
-          showCredentialMenu(firstField);
-        } else {
-          showNotification('未在此页面找到登录表单');
-        }
-      }
-    };
+        // Check for login forms and update badge
+        const updateBadge = async () => {
+            const passwordFields = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
 
-    // Track submitted credentials for save prompt
-    let pendingSaveCredentials: { username: string; password: string; url: string } | null = null;
+            if (passwordFields.length > 0) {
+                // Page has login forms, request badge update
+                chrome.runtime.sendMessage({
+                    type: 'UPDATE_BADGE',
+                    domain: window.location.hostname,
+                }).catch(() => {
+                    // Ignore if background is not ready
+                });
+            }
+        };
 
-    // Monitor form submissions to prompt password save
-    const handleFormSubmit = async (event: Event) => {
-      const target = event.target as HTMLElement;
-      
-      // Try to find the form
-      let form: HTMLFormElement | null = null;
-      if (target instanceof HTMLFormElement) {
-        form = target;
-      } else {
-        form = target.closest('form');
-      }
-      
-      if (!form) {
-        console.log('SecureFox: No form found on submit');
-        return;
-      }
+        // Keyboard shortcut handler (Ctrl+Shift+L)
+        const handleKeyboardShortcut = (event: KeyboardEvent) => {
+            // Ctrl+Shift+L or Cmd+Shift+L (Mac)
+            if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'L') {
+                event.preventDefault();
 
-      console.log('SecureFox: Form submitted, checking for credentials...');
+                // If an input field is focused, show menu for it
+                if (currentFocusedElement) {
+                    showCredentialMenu(currentFocusedElement);
+                    return;
+                }
 
-      // Find password field in the form
-      const passwordField = form.querySelector<HTMLInputElement>('input[type="password"]');
-      if (!passwordField) {
-        console.log('SecureFox: No password field found in form');
-        return;
-      }
-      
-      if (!passwordField.value) {
-        console.log('SecureFox: Password field is empty');
-        return;
-      }
+                // Otherwise, find the first login field and show menu
+                const loginFields = detectLoginFields();
+                if (loginFields.length > 0) {
+                    const firstField = loginFields.find(f => f.type === 'password') || loginFields[0];
+                    firstField.focus();
+                    showCredentialMenu(firstField);
+                } else {
+                    showNotification('未在此页面找到登录表单');
+                }
+            }
+        };
 
-      // Find username field
-      const usernameField = detectUsernameField(passwordField);
-      const username = usernameField?.value || '';
-      const password = passwordField.value;
+        // Storage key for pending credentials
+        const PENDING_CREDS_KEY = 'securefox_pending_credentials';
 
-      console.log('SecureFox: Found credentials', { username, hasPassword: !!password });
+        // Check for pending credentials on page load
+        const checkPendingCredentials = async () => {
+            try {
+                const result = await chrome.storage.local.get(PENDING_CREDS_KEY);
+                const pending = result[PENDING_CREDS_KEY];
 
-      if (!username) {
-        console.log('SecureFox: Username field is empty');
-        return;
-      }
-      
-      if (!password) {
-        console.log('SecureFox: Password is empty');
-        return;
-      }
+                if (pending && pending.url) {
+                    const currentUrl = window.location.href;
+                    // Check if we're on a different page (likely after successful login)
+                    if (currentUrl !== pending.url && currentUrl.includes(new URL(pending.url).hostname)) {
+                        console.log('SecureFox: Found pending credentials after page navigation');
+                        // Show save prompt
+                        await promptSavePassword(pending);
+                        // Clear pending credentials
+                        await chrome.storage.local.remove(PENDING_CREDS_KEY);
+                    }
+                }
+            } catch (error) {
+                console.error('SecureFox: Failed to check pending credentials:', error);
+            }
+        };
 
-      // Store credentials for potential save
-      pendingSaveCredentials = {
-        username,
-        password,
-        url: window.location.href
-      };
+        // Capture credentials from form fields
+        const captureCredentials = async () => {
+            // Find password field
+            const passwordFields = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
+            if (passwordFields.length === 0) return null;
 
-      console.log('SecureFox: Waiting to prompt save...');
+            // Get the first visible password field
+            const passwordField = Array.from(passwordFields).find(field => {
+                const rect = field.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && !field.disabled;
+            });
 
-      // Wait a moment to see if login succeeds (form doesn't reload/redirect means likely success)
-      setTimeout(async () => {
-        if (pendingSaveCredentials) {
-          console.log('SecureFox: Prompting to save password');
-          await promptSavePassword(pendingSaveCredentials);
-        }
-      }, 500);
-    };
+            if (!passwordField || !passwordField.value) return null;
 
-    // Prompt user to save password
-    const promptSavePassword = async (credentials: { username: string; password: string; url: string }) => {
-      // Backend will handle duplicate detection, just show the prompt
-      showSavePrompt(credentials, false);
-    };
+            // Find username field
+            const usernameField = detectUsernameField(passwordField);
+            const username = usernameField?.value || '';
+            const password = passwordField.value;
 
-    // Show save/update password prompt
-    const showSavePrompt = (credentials: { username: string; password: string; url: string }, isUpdate: boolean) => {
-      // Remove any existing prompt
-      const existingPrompt = document.querySelector('[data-securefox-save-prompt]');
-      if (existingPrompt) {
-        existingPrompt.remove();
-      }
+            if (!username || !password) return null;
 
-      // Create save prompt
-      const prompt = document.createElement('div');
-      prompt.setAttribute('data-securefox-save-prompt', 'true');
-      prompt.style.cssText = `
+            return {
+                username,
+                password,
+                url: window.location.href,
+                timestamp: Date.now()
+            };
+        };
+
+        // Monitor form submissions to prompt password save
+        const handleFormSubmit = async (event: Event) => {
+            console.log('SecureFox: Form submit detected');
+
+            const credentials = await captureCredentials();
+            if (!credentials) {
+                console.log('SecureFox: No valid credentials found');
+                return;
+            }
+
+            console.log('SecureFox: Captured credentials, storing for later...');
+
+            // Store credentials immediately in case page redirects
+            await chrome.storage.local.set({[PENDING_CREDS_KEY]: credentials});
+
+            // Also try to show prompt immediately (will be cancelled if page redirects)
+            setTimeout(async () => {
+                await promptSavePassword(credentials);
+                await chrome.storage.local.remove(PENDING_CREDS_KEY);
+            }, 100);
+        };
+
+        // Monitor button clicks that might submit forms
+        const handleButtonClick = async (event: MouseEvent) => {
+            const button = event.target as HTMLElement;
+
+            // Check if it's a submit button
+            if (button.tagName === 'BUTTON' || (button.tagName === 'INPUT' && (button as HTMLInputElement).type === 'submit')) {
+                const credentials = await captureCredentials();
+                if (credentials) {
+                    console.log('SecureFox: Submit button clicked, storing credentials...');
+                    await chrome.storage.local.set({[PENDING_CREDS_KEY]: credentials});
+                }
+            }
+        };
+
+        // Prompt user to save password
+        const promptSavePassword = async (credentials: { username: string; password: string; url: string }) => {
+            // Check if vault is unlocked before showing prompt
+            try {
+                const response = await chrome.runtime.sendMessage({type: MESSAGE_TYPES.GET_STATUS});
+
+                if (!response.isUnlocked) {
+                    // Vault is locked, show notification to unlock first
+                    showNotification('请先解锁密码库以保存密码', 'info');
+                    return;
+                }
+
+                // Backend will handle duplicate detection, just show the prompt
+                showSavePrompt(credentials, false);
+            } catch (error) {
+                console.error('Failed to check lock status:', error);
+                // If unable to check status, still show the prompt
+                showSavePrompt(credentials, false);
+            }
+        };
+
+        // Show save/update password prompt
+        const showSavePrompt = (credentials: {
+            username: string;
+            password: string;
+            url: string
+        }, isUpdate: boolean) => {
+            // Remove any existing prompt
+            const existingPrompt = document.querySelector('[data-securefox-save-prompt]');
+            if (existingPrompt) {
+                existingPrompt.remove();
+            }
+
+            // Create save prompt
+            const prompt = document.createElement('div');
+            prompt.setAttribute('data-securefox-save-prompt', 'true');
+            prompt.style.cssText = `
         position: fixed;
         top: 16px;
         right: 16px;
@@ -475,9 +531,9 @@ export default defineContentScript({
         animation: slideInRight 0.3s ease;
       `;
 
-      const hostname = new URL(credentials.url).hostname;
+            const hostname = new URL(credentials.url).hostname;
 
-      prompt.innerHTML = `
+            prompt.innerHTML = `
         <style>
           @keyframes slideInRight {
             from { transform: translateX(100%); opacity: 0; }
@@ -517,116 +573,130 @@ export default defineContentScript({
         </div>
       `;
 
-      document.body.appendChild(prompt);
+            document.body.appendChild(prompt);
 
-      // Handle save button
-      prompt.querySelector('#sf-save-btn')?.addEventListener('click', async () => {
-        try {
-          const siteName = hostname.split('.').slice(-2, -1)[0] || hostname;
-          
-          // Import match type helper
-          const { getRecommendedMatchType } = await import('@/utils/helpers');
-          const recommendedMatch = getRecommendedMatchType(credentials.url);
-          
-          const result = await chrome.runtime.sendMessage({
-            type: MESSAGE_TYPES.SAVE_CREDENTIALS,
-            data: {
-              name: siteName.charAt(0).toUpperCase() + siteName.slice(1),
-              type: 1, // Login type
-              login: {
-                username: credentials.username,
-                password: credentials.password,
-                uris: [{ 
-                  uri: credentials.url,
-                  match: recommendedMatch  // Set recommended match type
-                }]
-              }
+            // Handle save button
+            prompt.querySelector('#sf-save-btn')?.addEventListener('click', async () => {
+                try {
+                    // Generate entry name: "domain - username" or just "domain" if too long
+                    const domain = hostname.replace(/^www\./, ''); // Remove www. prefix
+                    let entryName = `${domain} - ${credentials.username}`;
+
+                    // If name is too long (>50 chars), just use domain
+                    if (entryName.length > 50) {
+                        entryName = domain;
+                    }
+
+                    // Import match type helper
+                    const {getRecommendedMatchType} = await import('@/utils/helpers');
+                    const recommendedMatch = getRecommendedMatchType(credentials.url);
+
+                    const result = await chrome.runtime.sendMessage({
+                        type: MESSAGE_TYPES.SAVE_CREDENTIALS,
+                        data: {
+                            name: entryName,
+                            type: 1, // Login type
+                            login: {
+                                username: credentials.username,
+                                password: credentials.password,
+                                uris: [{
+                                    uri: credentials.url,
+                                    match: recommendedMatch  // Set recommended match type
+                                }]
+                            }
+                        }
+                    });
+
+                    if (result.success) {
+                        showNotification(isUpdate ? '密码已更新' : '密码已保存', 'success');
+                        prompt.remove();
+                        // Clear stored credentials
+                        await chrome.storage.local.remove(PENDING_CREDS_KEY);
+                    } else {
+                        showNotification('保存失败', 'error');
+                    }
+                } catch (error) {
+                    console.error('Failed to save credential:', error);
+                    showNotification('保存失败', 'error');
+                }
+            });
+
+            // Handle never button
+            prompt.querySelector('#sf-never-btn')?.addEventListener('click', async () => {
+                // TODO: Add to never save list
+                prompt.remove();
+                await chrome.storage.local.remove(PENDING_CREDS_KEY);
+            });
+
+            // Handle close button
+            prompt.querySelector('#sf-close-prompt')?.addEventListener('click', async () => {
+                prompt.remove();
+                await chrome.storage.local.remove(PENDING_CREDS_KEY);
+            });
+
+            // Auto dismiss after 30 seconds
+            setTimeout(async () => {
+                if (prompt.parentNode) {
+                    prompt.remove();
+                    await chrome.storage.local.remove(PENDING_CREDS_KEY);
+                }
+            }, 30000);
+        };
+
+        // Initialize inline autofill system
+        const initialize = async () => {
+            // Detect and process login fields
+            const loginFields = detectLoginFields();
+
+            // Process fields asynchronously to check for matching credentials
+            for (const field of loginFields) {
+                // Mark as processed
+                field.setAttribute('data-securefox-processed', 'true');
+
+                // Create inline icon (only if credentials match)
+                await createInlineIcon(field);
             }
-          });
 
-          if (result.success) {
-            showNotification(isUpdate ? '密码已更新' : '密码已保存', 'success');
-            prompt.remove();
-            pendingSaveCredentials = null;
-          } else {
-            showNotification('保存失败', 'error');
-          }
-        } catch (error) {
-          console.error('Failed to save credential:', error);
-          showNotification('保存失败', 'error');
+            // Add event listeners
+            document.addEventListener('focusin', handleFocus, true);
+            document.addEventListener('focusout', handleBlur, true);
+            document.addEventListener('keydown', handleKeyboardShortcut, true);
+            document.addEventListener('submit', handleFormSubmit, true);
+            document.addEventListener('click', handleButtonClick, true);
+
+            // Check for pending credentials from previous page
+            await checkPendingCredentials();
+
+            // Initial badge update
+            updateBadge();
+        };
+
+        // Watch for new login fields (SPA support)
+        const observer = new MutationObserver(async () => {
+            const newFields = detectLoginFields();
+
+            // Process fields asynchronously
+            for (const field of newFields) {
+                field.setAttribute('data-securefox-processed', 'true');
+                await createInlineIcon(field);
+            }
+
+            // Update badge when new fields appear
+            if (newFields.length > 0) {
+                updateBadge();
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+        });
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialize);
+        } else {
+            initialize();
         }
-      });
-
-      // Handle never button
-      prompt.querySelector('#sf-never-btn')?.addEventListener('click', () => {
-        // TODO: Add to never save list
-        prompt.remove();
-        pendingSaveCredentials = null;
-      });
-
-      // Handle close button
-      prompt.querySelector('#sf-close-prompt')?.addEventListener('click', () => {
-        prompt.remove();
-        pendingSaveCredentials = null;
-      });
-
-      // Auto dismiss after 30 seconds
-      setTimeout(() => {
-        if (prompt.parentNode) {
-          prompt.remove();
-          pendingSaveCredentials = null;
-        }
-      }, 30000);
-    };
-
-    // Initialize inline autofill system
-    const initialize = () => {
-      // Detect and process login fields
-      const loginFields = detectLoginFields();
-      
-      loginFields.forEach(field => {
-        // Mark as processed
-        field.setAttribute('data-securefox-processed', 'true');
-        
-        // Create inline icon
-        createInlineIcon(field);
-      });
-
-      // Add event listeners
-      document.addEventListener('focusin', handleFocus, true);
-      document.addEventListener('focusout', handleBlur, true);
-      document.addEventListener('keydown', handleKeyboardShortcut, true);
-      document.addEventListener('submit', handleFormSubmit, true);
-      
-      // Initial badge update
-      updateBadge();
-    };
-
-    // Watch for new login fields (SPA support)
-    const observer = new MutationObserver(() => {
-      const newFields = detectLoginFields();
-      
-      newFields.forEach(field => {
-        field.setAttribute('data-securefox-processed', 'true');
-        createInlineIcon(field);
-      });
-      
-      // Update badge when new fields appear
-      if (newFields.length > 0) {
-        updateBadge();
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-
-    // Initialize when DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initialize);
-    } else {
-      initialize();
-    }
-  },
+    },
 });

@@ -152,16 +152,27 @@ async fn install_launchd_service() -> Result<()> {
     std::fs::write(&plist_path, plist_content)
         .map_err(|e| anyhow::anyhow!("Failed to write plist file: {}", e))?;
 
-    // Load the service
+    // Unload the service first if it exists (ignore errors)
+    let _ = std::process::Command::new("launchctl")
+        .arg("bootout")
+        .arg(format!("gui/{}", users::get_current_uid()))
+        .arg(&plist_path)
+        .output();
+
+    // Bootstrap the service (this ensures it persists across reboots)
     let output = std::process::Command::new("launchctl")
-        .arg("load")
+        .arg("bootstrap")
+        .arg(format!("gui/{}", users::get_current_uid()))
         .arg(&plist_path)
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to load launchd service: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to bootstrap launchd service: {}", e))?;
 
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("Failed to load service: {}", error);
+        // If service is already loaded, that's okay
+        if !error.contains("already loaded") && !error.contains("service already loaded") {
+            anyhow::bail!("Failed to bootstrap service: {}", error);
+        }
     }
 
     println!();

@@ -29,7 +29,8 @@ export const SESSION_CONFIG = {
 } as const;
 
 // Auto-lock options (in minutes)
-export const AUTO_LOCK_OPTIONS = [5, 10, 15, 30, 60] as const;
+// -1 = lock on browser close, 60 = 1 hour, 360 = 6 hours
+export const AUTO_LOCK_OPTIONS = [60, 360, -1] as const;
 export type AutoLockOption = typeof AUTO_LOCK_OPTIONS[number];
 
 // UI Configuration

@@ -60,6 +60,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
         setShowUriMatchPicker(false);
     };
 
+    const getAutoLockLabel = (minutes: number): string => {
+        if (minutes === -1) {
+            return '跟随浏览器关闭';
+        } else if (minutes === 60) {
+            return '1 小时';
+        } else if (minutes === 360) {
+            return '6 小时';
+        } else {
+            return `${minutes} 分钟`;
+        }
+    };
+
     const getUriMatchTypeLabel = (matchType: UriMatchType): string => {
         switch (matchType) {
             case UriMatchType.Domain:
@@ -101,7 +113,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                 {
                     icon: Shield,
                     label: '自动锁定',
-                    description: `${autoLockMinutes} 分钟后自动锁定`,
+                    description: getAutoLockLabel(autoLockMinutes),
                     action: () => setShowAutoLockPicker(true)
                 },
                 {
@@ -256,7 +268,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                                             : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                                     }`}
                                 >
-                                    {minutes} 分钟
+                                    {getAutoLockLabel(minutes)}
                                 </button>
                             ))}
                         </div>
