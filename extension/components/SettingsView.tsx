@@ -63,6 +63,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
     const getAutoLockLabel = (minutes: number): string => {
         if (minutes === -1) {
             return '跟随浏览器关闭';
+        } else if (minutes === 15) {
+            return '15 分钟';
         } else if (minutes === 60) {
             return '1 小时';
         } else if (minutes === 360) {
