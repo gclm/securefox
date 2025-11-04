@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {CreditCard, Eye, EyeOff, FileText, Key, User, X, Zap} from 'lucide-react';
 import {useUIStore, useVaultStore} from '@/store';
 import {ItemType} from '@/types';
@@ -6,6 +6,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Button} from '@/components/ui/button';
 import {PasswordGenerator} from '@/components/PasswordGenerator';
+import {browser} from 'wxt/browser';
 
 export const AddItemModal: React.FC = () => {
     const {isAddItemModalOpen, setAddItemModalOpen, showNotification} = useUIStore();
@@ -25,6 +26,62 @@ export const AddItemModal: React.FC = () => {
         urls: [''] as string[],
         notes: '',
     });
+
+    // 当模态框打开且类型为登录时,自动获取当前活动标签页的 URL
+    useEffect(() => {
+        const fetchActiveTabUrl = async () => {
+            if (isAddItemModalOpen && itemType === ItemType.Login) {
+                try {
+                    const tabs = await browser.tabs.query({active: true, currentWindow: true});
+                    if (tabs[0]?.url) {
+                        const url = tabs[0].url;
+                        // 只在 http/https 协议下自动填充
+                        if (url.startsWith('http://') || url.startsWith('https://')) {
+                            // 如果第一个 URL 字段为空,则自动填充
+                            if (!loginForm.urls[0]) {
+                                setLoginForm(prev => ({...prev, urls: [url]}));
+                            }
+                        }
+                    }
+                } catch (error) {
+                    // 静默失败,不影响用户体验
+                    console.error('Failed to get active tab URL:', error);
+                }
+            }
+        };
+        fetchActiveTabUrl();
+    }, [isAddItemModalOpen, itemType]);
+
+    // 手动填充当前网站地址
+    const handleFillCurrentUrl = async () => {
+        try {
+            const tabs = await browser.tabs.query({active: true, currentWindow: true});
+            if (tabs[0]?.url) {
+                const url = tabs[0].url;
+                // 只在 http/https 协议下填充
+                if (url.startsWith('http://') || url.startsWith('https://')) {
+                    setLoginForm(prev => ({...prev, urls: [...prev.urls, url]}));
+                    showNotification({
+                        type: 'success',
+                        title: '已添加',
+                        message: '当前网站地址已添加',
+                    });
+                } else {
+                    showNotification({
+                        type: 'warning',
+                        title: '无效地址',
+                        message: '当前页面不是有效的网站地址',
+                    });
+                }
+            }
+        } catch (error) {
+            showNotification({
+                type: 'error',
+                title: '获取失败',
+                message: '无法获取当前页面地址',
+            });
+        }
+    };
 
     // 信用卡表单
     const [cardForm, setCardForm] = useState({
@@ -335,13 +392,23 @@ export const AddItemModal: React.FC = () => {
                             <div>
                                 <div className="flex items-center justify-between mb-2">
                                     <Label>网址</Label>
-                                    <button
-                                        type="button"
-                                        onClick={() => setLoginForm({...loginForm, urls: [...loginForm.urls, '']})}
-                                        className="text-xs text-blue-500 hover:text-blue-600"
-                                    >
-                                        + 添加网址
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleFillCurrentUrl}
+                                            className="text-xs text-green-500 hover:text-green-600 transition-colors"
+                                            title="填充当前网站地址"
+                                        >
+                                            🌐 填充当前
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setLoginForm({...loginForm, urls: [...loginForm.urls, '']})}
+                                            className="text-xs text-blue-500 hover:text-blue-600"
+                                        >
+                                            + 添加网址
+                                        </button>
+                                    </div>
                                 </div>
                                 {loginForm.urls.map((url, index) => (
                                     <div key={index} className="flex gap-2 mb-2">

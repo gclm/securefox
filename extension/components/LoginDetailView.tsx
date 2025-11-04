@@ -6,6 +6,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Button} from '@/components/ui/button';
 import {TOTPCode} from '@/components/TOTPCode';
+import {browser} from 'wxt/browser';
 
 interface LoginDetailViewProps {
     onBack: () => void;
@@ -169,6 +170,37 @@ export const LoginDetailView: React.FC<LoginDetailViewProps> = ({onBack}) => {
         setIsEditing(false);
     };
 
+    // 手动填充当前网站地址
+    const handleFillCurrentUrl = async () => {
+        try {
+            const tabs = await browser.tabs.query({active: true, currentWindow: true});
+            if (tabs[0]?.url) {
+                const url = tabs[0].url;
+                // 只在 http/https 协议下填充
+                if (url.startsWith('http://') || url.startsWith('https://')) {
+                    setForm(prev => ({...prev, urls: [...prev.urls, url]}));
+                    showNotification({
+                        type: 'success',
+                        title: '已添加',
+                        message: '当前网站地址已添加',
+                    });
+                } else {
+                    showNotification({
+                        type: 'warning',
+                        title: '无效地址',
+                        message: '当前页面不是有效的网站地址',
+                    });
+                }
+            }
+        } catch (error) {
+            showNotification({
+                type: 'error',
+                title: '获取失败',
+                message: '无法获取当前页面地址',
+            });
+        }
+    };
+
     if (!item) {
         return (
             <div className="flex flex-col h-screen bg-gray-50">
@@ -290,13 +322,23 @@ export const LoginDetailView: React.FC<LoginDetailViewProps> = ({onBack}) => {
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <Label>网址</Label>
-                                <button
-                                    type="button"
-                                    onClick={() => setForm({...form, urls: [...form.urls, '']})}
-                                    className="text-xs text-blue-500 hover:text-blue-600"
-                                >
-                                    + 添加网址
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleFillCurrentUrl}
+                                        className="text-xs text-green-500 hover:text-green-600 transition-colors"
+                                        title="填充当前网站地址"
+                                    >
+                                        🌐 填充当前
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setForm({...form, urls: [...form.urls, '']})}
+                                        className="text-xs text-blue-500 hover:text-blue-600"
+                                    >
+                                        + 添加网址
+                                    </button>
+                                </div>
                             </div>
                             {form.urls.map((url, index) => (
                                 <div key={index} className="flex gap-2 mb-2">
