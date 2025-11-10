@@ -8,6 +8,7 @@ import {SettingsView} from '@/components/SettingsView';
 import {AddItemModal} from '@/components/AddItemModal';
 import {LoginDetailView} from '@/components/LoginDetailView';
 import {NoteDetailView} from '@/components/NoteDetailView';
+import {CardDetailView} from '@/components/CardDetailView';
 
 export const MainView: React.FC = () => {
     const [showSettings, setShowSettings] = useState(false);
@@ -62,6 +63,10 @@ export const MainView: React.FC = () => {
 
     if (detailViewType === 'note') {
         return <NoteDetailView onBack={closeDetailView}/>;
+    }
+
+    if (detailViewType === 'card') {
+        return <CardDetailView onBack={closeDetailView}/>;
     }
 
     return (

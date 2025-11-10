@@ -7,6 +7,7 @@ import {Label} from '@/components/ui/label';
 import {Button} from '@/components/ui/button';
 import {PasswordGenerator} from '@/components/PasswordGenerator';
 import {browser} from 'wxt/browser';
+import {detectCardBrand} from '@/utils/cardDetector';
 
 export const AddItemModal: React.FC = () => {
     const {isAddItemModalOpen, setAddItemModalOpen, showNotification} = useUIStore();
@@ -90,6 +91,7 @@ export const AddItemModal: React.FC = () => {
         number: '',
         expMonth: '',
         expYear: '',
+        expiry: '', // UI 输入：MM/YY 或 MM/YYYY
         code: '',
         brand: '',
         notes: '',
@@ -101,6 +103,64 @@ export const AddItemModal: React.FC = () => {
         notes: '',
     });
 
+    // 解析并格式化有效期输入
+    const parseExpiry = (input: string): { month: string; year: string } => {
+        const digits = (input || '').replace(/\D/g, '').slice(0, 6); // 最多 6 位: MMYYYY
+        if (!digits) return { month: '', year: '' };
+        const mm = digits.slice(0, 2);
+        const rest = digits.slice(2);
+        let year = '';
+        if (rest.length === 0) {
+            year = '';
+        } else if (rest.length <= 2) {
+            // 转成 20YY
+            year = rest.padStart(2, '0');
+            year = `20${year}`;
+        } else {
+            // 3-4 位则按 YYYY 处理（常见情况是 2029）
+            year = rest.slice(0, 4);
+        }
+        return { month: mm, year };
+    };
+
+    const formatExpiryForDisplay = (input: string): string => {
+        const digits = (input || '').replace(/\D/g, '').slice(0, 6);
+        if (!digits) return '';
+        const mm = digits.slice(0, 2);
+        const rest = digits.slice(2);
+        if (rest.length === 0) return mm;
+        if (rest.length <= 2) return `${mm}/${rest}`; // MM/YY（正在输入）
+        return `${mm}/${rest.slice(0, 4)}`; // MM/YYYY
+    };
+
+    const handleExpiryChange = (raw: string) => {
+        const formatted = formatExpiryForDisplay(raw);
+        const { month, year } = parseExpiry(formatted);
+        setCardForm(prev => ({ ...prev, expiry: formatted, expMonth: month, expYear: year }));
+    };
+
+    // 信用卡卡号格式化/规范化
+    const normalizeCardNumber = (input: string): string => (input || '').replace(/\D/g, '').slice(0, 19);
+    const formatCardNumberDisplay = (input: string): string => {
+        const digits = normalizeCardNumber(input);
+        if (!digits) return '';
+        // 简单按4位分组显示（兼容最多19位PAN）
+        return digits.replace(/(.{4})/g, '$1 ').trim();
+    };
+
+    // 处理卡号变化：格式化 + 自动识别品牌
+    const handleCardNumberChange = (value: string) => {
+        const formatted = formatCardNumberDisplay(value);
+        const detectedBrand = detectCardBrand(formatted);
+        
+        setCardForm(prev => ({
+            ...prev,
+            number: formatted,
+            // 只在品牌字段为空时自动填充，避免覆盖用户手动编辑的内容
+            brand: prev.brand ? prev.brand : detectedBrand,
+        }));
+    };
+
     const handleClose = () => {
         setAddItemModalOpen(false);
         // 重置表单
@@ -111,6 +171,7 @@ export const AddItemModal: React.FC = () => {
             number: '',
             expMonth: '',
             expYear: '',
+            expiry: '',
             code: '',
             brand: '',
             notes: ''
@@ -137,6 +198,15 @@ export const AddItemModal: React.FC = () => {
 
         try {
             let itemData: any = {type: itemType};
+
+            // 如果只填了合并的有效期字段，提交前做一次兜底解析
+            let expMonthLocal = cardForm.expMonth;
+            let expYearLocal = cardForm.expYear;
+            if (itemType === ItemType.Card && cardForm.expiry && (!expMonthLocal || !expYearLocal)) {
+                const { month, year } = parseExpiry(cardForm.expiry);
+                if (month) expMonthLocal = month;
+                if (year) expYearLocal = year;
+            }
 
             if (itemType === ItemType.Login) {
                 if (!loginForm.name || !loginForm.username) {
@@ -178,9 +248,9 @@ export const AddItemModal: React.FC = () => {
                     name: cardForm.name,
                     card: {
                         cardholderName: cardForm.cardholderName,
-                        number: cardForm.number,
-                        expMonth: cardForm.expMonth,
-                        expYear: cardForm.expYear,
+                        number: normalizeCardNumber(cardForm.number),
+                        expMonth: expMonthLocal,
+                        expYear: expYearLocal,
                         code: cardForm.code,
                         brand: cardForm.brand,
                     },
@@ -477,37 +547,28 @@ export const AddItemModal: React.FC = () => {
 
                             <div>
                                 <Label htmlFor="card-number">卡号 *</Label>
-                                <Input
-                                    id="card-number"
-                                    value={cardForm.number}
-                                    onChange={(e) => setCardForm({...cardForm, number: e.target.value})}
-                                    placeholder="1234 5678 9012 3456"
-                                    required
-                                />
+                                    <Input
+                                        id="card-number"
+                                        value={cardForm.number}
+                                        onChange={(e) => handleCardNumberChange(e.target.value)}
+                                        placeholder="1234 5678 9012 3456"
+                                        inputMode="numeric"
+                                        autoComplete="cc-number"
+                                        maxLength={23}
+                                        required
+                                    />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label htmlFor="card-exp-month">有效期月</Label>
-                                    <Input
-                                        id="card-exp-month"
-                                        value={cardForm.expMonth}
-                                        onChange={(e) => setCardForm({...cardForm, expMonth: e.target.value})}
-                                        placeholder="MM"
-                                        maxLength={2}
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="card-exp-year">有效期年</Label>
-                                    <Input
-                                        id="card-exp-year"
-                                        value={cardForm.expYear}
-                                        onChange={(e) => setCardForm({...cardForm, expYear: e.target.value})}
-                                        placeholder="YYYY"
-                                        maxLength={4}
-                                    />
-                                </div>
+                            <div>
+                                <Label htmlFor="card-expiry">有效期</Label>
+                                <Input
+                                    id="card-expiry"
+                                    value={cardForm.expiry}
+                                    onChange={(e) => handleExpiryChange(e.target.value)}
+                                    placeholder="MM/YY 或 MM/YYYY"
+                                    maxLength={7}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">自动解析为 月/年</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">

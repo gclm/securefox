@@ -89,14 +89,15 @@ export default defineContentScript({
             }
 
             // Check if there are any matching credentials for this page
+            // Uses CHECK_MATCHING_COUNT which works even when vault is locked
             try {
                 const response = await chrome.runtime.sendMessage({
-                    type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
+                    type: MESSAGE_TYPES.CHECK_MATCHING_COUNT,
                     domain: window.location.hostname,
                 });
 
                 // Only create icon if we have matching entries
-                if (!response || !response.entries || response.entries.length === 0) {
+                if (!response || !response.hasMatches) {
                     return; // No matching credentials, don't show icon
                 }
 
@@ -123,6 +124,17 @@ export default defineContentScript({
                 if (currentMenu) {
                     currentMenu.destroy();
                     currentMenu = null;
+                }
+
+                // Check if vault is unlocked
+                const statusResponse = await chrome.runtime.sendMessage({
+                    type: MESSAGE_TYPES.GET_STATUS,
+                });
+
+                if (!statusResponse.isUnlocked) {
+                    // Vault is locked, show notification
+                    showNotification('请先解锁密码库后使用自动填充', 'warning');
+                    return;
                 }
 
                 // Request credentials from background

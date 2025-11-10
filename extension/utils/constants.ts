@@ -56,6 +56,7 @@ export const PASSWORD_DEFAULTS = {
 export const MESSAGE_TYPES = {
     // From content script to background
     REQUEST_CREDENTIALS: 'REQUEST_CREDENTIALS',
+    CHECK_MATCHING_COUNT: 'CHECK_MATCHING_COUNT', // Check if matching entries exist (works even when locked)
     FILL_CREDENTIALS: 'FILL_CREDENTIALS',
     SAVE_CREDENTIALS: 'SAVE_CREDENTIALS',
 

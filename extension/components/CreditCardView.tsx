@@ -4,7 +4,7 @@ import {useUIStore, useVaultStore} from '@/store';
 import {ItemType} from '@/types';
 
 export const CreditCardView: React.FC = () => {
-    const {showNotification} = useUIStore();
+    const {showNotification, showDetailView} = useUIStore();
     const {items, searchQuery} = useVaultStore();
     const [showAddForm, setShowAddForm] = useState(false);
 
@@ -52,7 +52,8 @@ export const CreditCardView: React.FC = () => {
             {/* 卡片列表 */}
             {cards.map(card => (
                 <div key={card.id} className="relative">
-                    <div className={`${card.color} text-white rounded-xl p-6 shadow-lg`}>
+                    <button onClick={() => showDetailView(card.id, 'card')} className="w-full text-left">
+                        <div className={`${card.color} text-white rounded-xl p-6 shadow-lg hover:opacity-95 transition-opacity`}>
                         <div className="flex justify-between items-start mb-8">
                             <div>
                                 <p className="text-xs opacity-80 mb-1">信用卡</p>
@@ -77,6 +78,7 @@ export const CreditCardView: React.FC = () => {
                             </div>
                         </div>
                     </div>
+                    </button>
                 </div>
             ))}
 

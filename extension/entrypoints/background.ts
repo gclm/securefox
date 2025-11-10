@@ -64,25 +64,20 @@ export default defineBackground(() => {
         try {
             const isUnlocked = await authApi.isUnlocked();
 
-            if (!isUnlocked) {
-                // Clear badge if vault is locked
-                await chrome.action.setBadgeText({text: '', tabId});
-                return;
-            }
-
             // Get all login entries and match using frontend logic
             const allEntries = await entriesApi.getEntries();
             const matchingEntries = findMatchingItems(allEntries, url);
             const count = matchingEntries.length;
 
-            // Update badge
+            // Update badge - show count even when locked
             if (count > 0) {
                 await chrome.action.setBadgeText({
                     text: count.toString(),
                     tabId
                 });
+                // Use different color based on lock state
                 await chrome.action.setBadgeBackgroundColor({
-                    color: '#3b82f6', // Blue
+                    color: isUnlocked ? '#3b82f6' : '#94a3b8', // Blue when unlocked, gray when locked
                     tabId
                 });
             } else {
@@ -123,6 +118,18 @@ export default defineBackground(() => {
                     case MESSAGE_TYPES.GET_STATUS:
                         const isUnlocked = await authApi.isUnlocked();
                         sendResponse({isUnlocked});
+                        break;
+
+                    case MESSAGE_TYPES.CHECK_MATCHING_COUNT:
+                        // Check if matching credentials exist (works even when locked)
+                        try {
+                            const allEntries = await entriesApi.getEntries();
+                            const matchingEntries = findMatchingItems(allEntries, sender.tab?.url || '');
+                            sendResponse({count: matchingEntries.length, hasMatches: matchingEntries.length > 0});
+                        } catch (error) {
+                            console.error('Failed to check matching count:', error);
+                            sendResponse({count: 0, hasMatches: false, error: 'Failed to check matches'});
+                        }
                         break;
 
                     case MESSAGE_TYPES.REQUEST_CREDENTIALS:
@@ -272,23 +279,43 @@ export default defineBackground(() => {
     });
 
     // Monitor window removal for "lock on browser close" feature
-    chrome.windows.onRemoved.addListener(async () => {
+    chrome.windows.onRemoved.addListener(async (windowId) => {
         // Check if user has "lock on browser close" enabled
         const minutes = await getAutoLockMinutes();
         if (minutes !== -1) {
             return; // Not using lock on browser close
         }
 
-        // Check if any windows remain
-        const windows = await chrome.windows.getAll();
-        if (windows.length === 0) {
-            // All windows closed, lock the vault
-            const isUnlocked = await authApi.isUnlocked();
-            if (isUnlocked) {
-                await authApi.lock();
-                await updateExtensionIcon(false);
+        // Use a small delay to ensure window list is updated
+        setTimeout(async () => {
+            try {
+                // Check if any windows remain
+                const windows = await chrome.windows.getAll({windowTypes: ['normal']});
+                
+                // Only lock if NO normal browser windows remain
+                if (windows.length === 0) {
+                    // Additional check: verify no tabs exist at all
+                    // This prevents locking when tabs are moved/merged by extensions
+                    const allTabs = await chrome.tabs.query({});
+                    
+                    // If there are still tabs (e.g., in extension popups or suspended by tab managers),
+                    // don't lock - the browser is still running
+                    if (allTabs.length > 0) {
+                        console.log('Tabs still exist (possibly managed by extensions), not locking');
+                        return;
+                    }
+                    
+                    const isUnlocked = await authApi.isUnlocked();
+                    if (isUnlocked) {
+                        console.log('All browser windows closed, locking vault...');
+                        await authApi.lock();
+                        await updateExtensionIcon(false);
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking windows on close:', error);
             }
-        }
+        }, 150); // Slightly longer delay to ensure accurate state
     });
 
     // Create context menu items
