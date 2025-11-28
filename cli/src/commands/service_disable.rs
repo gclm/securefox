@@ -19,7 +19,7 @@ async fn uninstall_launchd_service() -> Result<()> {
     let home_dir =
         dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
 
-    let plist_path = home_dir.join("Library/LaunchAgents/com.gclm.securefox.plist");
+    let plist_path = home_dir.join("Library/LaunchAgents/club.gclmit.securefox.plist");
 
     if !plist_path.exists() {
         anyhow::bail!("Service is not installed");
@@ -28,19 +28,47 @@ async fn uninstall_launchd_service() -> Result<()> {
     // Try to stop the service first
     let _ = std::process::Command::new("launchctl")
         .arg("stop")
-        .arg("com.gclm.securefox")
+        .arg("club.gclmit.securefox")
         .output();
 
-    // Unload the service
+    // Try to kill the service if it's still running
+    let _ = std::process::Command::new("launchctl")
+        .arg("kill")
+        .arg("SIGTERM")
+        .arg("club.gclmit.securefox")
+        .output();
+
+    // Bootout the service (for modern macOS)
+    let bootout_result = std::process::Command::new("launchctl")
+        .arg("bootout")
+        .arg(format!("gui/{}", users::get_current_uid()))
+        .arg(&plist_path)
+        .output();
+
+    if let Ok(output) = bootout_result {
+        if !output.status.success() {
+            let error = String::from_utf8_lossy(&output.stderr);
+            // Only warn if it's not "service not found"
+            if !error.contains("Could not find") && !error.contains("not found") {
+                eprintln!("Warning: Failed to bootout service: {}", error);
+            }
+        }
+    }
+
+    // Try legacy unload as fallback
     let output = std::process::Command::new("launchctl")
         .arg("unload")
+        .arg("-w")
         .arg(&plist_path)
         .output()
         .map_err(|e| anyhow::anyhow!("Failed to unload launchd service: {}", e))?;
 
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
-        eprintln!("Warning: Failed to unload service: {}", error);
+        // Only warn if it's not "service not found"
+        if !error.contains("Could not find") && !error.contains("not found") {
+            eprintln!("Warning: Failed to unload service: {}", error);
+        }
     }
 
     // Remove plist file

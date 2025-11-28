@@ -49,39 +49,6 @@ enum Commands {
     /// Show detailed version information
     Version,
 
-    /// Vault management commands
-    Vault {
-        #[command(subcommand)]
-        command: VaultCommands,
-    },
-
-    /// Item management commands
-    Item {
-        #[command(subcommand)]
-        command: ItemCommands,
-    },
-
-    /// Data import/export commands
-    Data {
-        #[command(subcommand)]
-        command: DataCommands,
-    },
-
-    /// Utility tools
-    Tools {
-        #[command(subcommand)]
-        command: ToolsCommands,
-    },
-
-    /// Background service management
-    Service {
-        #[command(subcommand)]
-        command: ServiceCommands,
-    },
-}
-
-#[derive(Subcommand, Debug)]
-enum VaultCommands {
     /// Initialize a new vault
     Init {
         /// Remote git repository URL
@@ -92,9 +59,6 @@ enum VaultCommands {
         kdf: String,
     },
 
-    /// Lock the vault
-    Lock,
-
     /// Unlock the vault
     Unlock {
         /// Remember in keychain
@@ -102,47 +66,9 @@ enum VaultCommands {
         remember: bool,
     },
 
-    /// Sync with git remote
-    Sync {
-        #[command(subcommand)]
-        command: SyncCommands,
-    },
-}
+    /// Lock the vault
+    Lock,
 
-#[derive(Subcommand, Debug)]
-enum SyncCommands {
-    /// Push changes to remote
-    Push,
-
-    /// Pull changes from remote
-    Pull,
-
-    /// Configure git remote URL
-    Config {
-        /// Remote git repository URL
-        url: String,
-    },
-
-    /// Show sync status
-    Status,
-
-    /// Enable auto-sync
-    Enable {
-        /// Sync mode: manual or auto
-        #[arg(short, long, default_value = "manual")]
-        mode: String,
-
-        /// Sync interval in seconds (for auto mode)
-        #[arg(short, long, default_value = "600")]
-        interval: u64,
-    },
-
-    /// Disable auto-sync
-    Disable,
-}
-
-#[derive(Subcommand, Debug)]
-enum ItemCommands {
     /// Add a new item
     Add {
         /// Item name
@@ -209,33 +135,7 @@ enum ItemCommands {
         #[arg(short, long)]
         force: bool,
     },
-}
 
-#[derive(Subcommand, Debug)]
-enum DataCommands {
-    /// Import data from another password manager
-    Import {
-        /// Import file path
-        file: PathBuf,
-
-        /// Import format (bitwarden, csv)
-        #[arg(short = 'f', long, default_value = "bitwarden")]
-        format: String,
-    },
-
-    /// Export vault data
-    Export {
-        /// Export file path
-        file: PathBuf,
-
-        /// Export format (bitwarden, csv)
-        #[arg(short = 'f', long, default_value = "bitwarden")]
-        format: String,
-    },
-}
-
-#[derive(Subcommand, Debug)]
-enum ToolsCommands {
     /// Generate a password
     Generate {
         /// Password length
@@ -264,11 +164,75 @@ enum ToolsCommands {
         #[arg(short, long)]
         copy: bool,
     },
+
+    /// Import data from another password manager
+    Import {
+        /// Import file path
+        file: PathBuf,
+
+        /// Import format (bitwarden, csv)
+        #[arg(short = 'f', long, default_value = "bitwarden")]
+        format: String,
+    },
+
+    /// Export vault data
+    Export {
+        /// Export file path
+        file: PathBuf,
+
+        /// Export format (bitwarden, csv)
+        #[arg(short = 'f', long, default_value = "bitwarden")]
+        format: String,
+    },
+
+    /// Git synchronization commands
+    Sync {
+        #[command(subcommand)]
+        command: Option<SyncCommands>,
+    },
+
+    /// Background service management
+    Service {
+        #[command(subcommand)]
+        command: ServiceCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum SyncCommands {
+    /// Push changes to remote
+    Push,
+
+    /// Pull changes from remote
+    Pull,
+
+    /// Configure git remote URL
+    Config {
+        /// Remote git repository URL
+        url: String,
+    },
+
+    /// Show sync status
+    Status,
+
+    /// Enable auto-sync
+    Enable {
+        /// Sync mode: manual or auto
+        #[arg(short, long, default_value = "manual")]
+        mode: String,
+
+        /// Sync interval in seconds (for auto mode)
+        #[arg(short, long, default_value = "600")]
+        interval: u64,
+    },
+
+    /// Disable auto-sync
+    Disable,
 }
 
 #[derive(Subcommand, Debug)]
 enum ServiceCommands {
-    /// Start background service (API + Tray)
+    /// Start background service
     Start {
         /// Port to listen on
         #[arg(short, long, default_value = "8787")]
@@ -305,10 +269,10 @@ enum ServiceCommands {
     Status,
 
     /// Enable system service (auto-start on boot)
-    Enable,
+    Install,
 
     /// Disable system service (remove auto-start)
-    Disable,
+    Uninstall,
 
     /// Internal: Actually run the service (hidden command)
     #[command(hide = true)]
@@ -347,71 +311,61 @@ async fn main() -> Result<()> {
             return Ok(());
         }
 
-        Commands::Vault { command } => match command {
-            VaultCommands::Init { remote, kdf } => {
-                commands::init::execute(vault_path, remote, kdf).await
-            }
-            VaultCommands::Lock => commands::lock::execute(vault_path).await,
-            VaultCommands::Unlock { remember } => {
-                commands::unlock::execute(vault_path, remember).await
-            }
-            VaultCommands::Sync { command } => match command {
-                SyncCommands::Push => commands::sync::execute(vault_path, false, true).await,
-                SyncCommands::Pull => commands::sync::execute(vault_path, true, false).await,
-                SyncCommands::Config { url } => {
-                    commands::sync_config::execute(vault_path, url).await
-                }
-                SyncCommands::Status => commands::sync_status::execute(vault_path).await,
-                SyncCommands::Enable { mode, interval } => {
-                    commands::sync_enable::execute(vault_path, mode, interval).await
-                }
-                SyncCommands::Disable => commands::sync_disable::execute(vault_path).await,
-            },
-        },
+        Commands::Init { remote, kdf } => commands::init::execute(vault_path, remote, kdf).await,
+        Commands::Lock => commands::lock::execute(vault_path).await,
+        Commands::Unlock { remember } => commands::unlock::execute(vault_path, remember).await,
 
-        Commands::Item { command } => match command {
-            ItemCommands::Add {
-                name,
-                item_type,
-                username,
-                generate,
-                totp,
-            } => {
-                commands::add::execute(vault_path, name, item_type, username, generate, totp).await
-            }
-            ItemCommands::List {
-                item_type,
-                search,
-                detailed,
-            } => commands::list::execute(vault_path, item_type, search, detailed).await,
-            ItemCommands::Show { name, copy, totp } => {
-                commands::show::execute(vault_path, name, copy, totp).await
-            }
-            ItemCommands::Edit { name } => commands::edit::execute(vault_path, name).await,
-            ItemCommands::Remove { name, force } => {
-                commands::remove::execute(vault_path, name, force).await
-            }
-        },
+        Commands::Add {
+            name,
+            item_type,
+            username,
+            generate,
+            totp,
+        } => commands::add::execute(vault_path, name, item_type, username, generate, totp).await,
+        Commands::List {
+            item_type,
+            search,
+            detailed,
+        } => commands::list::execute(vault_path, item_type, search, detailed).await,
+        Commands::Show { name, copy, totp } => {
+            commands::show::execute(vault_path, name, copy, totp).await
+        }
+        Commands::Edit { name } => commands::edit::execute(vault_path, name).await,
+        Commands::Remove { name, force } => {
+            commands::remove::execute(vault_path, name, force).await
+        }
 
-        Commands::Data { command } => match command {
-            DataCommands::Import { file, format } => {
-                commands::import::execute(vault_path, file, format).await
-            }
-            DataCommands::Export { file, format } => {
-                commands::export::execute(vault_path, file, format).await
-            }
-        },
+        Commands::Generate {
+            length,
+            numbers,
+            symbols,
+            copy,
+        } => commands::generate::execute(length, numbers, symbols, copy).await,
+        Commands::Totp { name, copy } => commands::totp::execute(vault_path, name, copy).await,
 
-        Commands::Tools { command } => match command {
-            ToolsCommands::Generate {
-                length,
-                numbers,
-                symbols,
-                copy,
-            } => commands::generate::execute(length, numbers, symbols, copy).await,
-            ToolsCommands::Totp { name, copy } => {
-                commands::totp::execute(vault_path, name, copy).await
+        Commands::Import { file, format } => {
+            commands::import::execute(vault_path, file, format).await
+        }
+        Commands::Export { file, format } => {
+            commands::export::execute(vault_path, file, format).await
+        }
+
+        Commands::Sync { command } => match command {
+            None => {
+                // Default: sync both ways (pull then push)
+                commands::sync::execute(vault_path.clone(), true, false).await?;
+                commands::sync::execute(vault_path, false, true).await
             }
+            Some(SyncCommands::Push) => commands::sync::execute(vault_path, false, true).await,
+            Some(SyncCommands::Pull) => commands::sync::execute(vault_path, true, false).await,
+            Some(SyncCommands::Config { url }) => {
+                commands::sync_config::execute(vault_path, url).await
+            }
+            Some(SyncCommands::Status) => commands::sync_status::execute(vault_path).await,
+            Some(SyncCommands::Enable { mode, interval }) => {
+                commands::sync_enable::execute(vault_path, mode, interval).await
+            }
+            Some(SyncCommands::Disable) => commands::sync_disable::execute(vault_path).await,
         },
 
         Commands::Service { command } => match command {
@@ -427,8 +381,8 @@ async fn main() -> Result<()> {
                 timeout,
             } => commands::service_restart::execute(vault_path, host, port, timeout).await,
             ServiceCommands::Status => commands::service_status::execute().await,
-            ServiceCommands::Enable => commands::service_enable::execute().await,
-            ServiceCommands::Disable => commands::service_disable::execute().await,
+            ServiceCommands::Install => commands::service_enable::execute().await,
+            ServiceCommands::Uninstall => commands::service_disable::execute().await,
             ServiceCommands::Run {
                 port,
                 host,

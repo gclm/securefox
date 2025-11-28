@@ -21,7 +21,7 @@ async fn install_launchd_service() -> Result<()> {
 
     let vault_path = home_dir.join(".securefox");
     let launch_agents_dir = home_dir.join("Library/LaunchAgents");
-    let plist_path = launch_agents_dir.join("com.gclm.securefox.plist");
+    let plist_path = launch_agents_dir.join("club.gclmit.securefox.plist");
 
     // Get current executable path
     let current_exe = std::env::current_exe()
@@ -159,19 +159,49 @@ async fn install_launchd_service() -> Result<()> {
         .arg(&plist_path)
         .output();
 
+    // Use legacy unload as fallback for older macOS versions
+    let _ = std::process::Command::new("launchctl")
+        .arg("unload")
+        .arg(&plist_path)
+        .output();
+
     // Bootstrap the service (this ensures it persists across reboots)
     let output = std::process::Command::new("launchctl")
         .arg("bootstrap")
         .arg(format!("gui/{}", users::get_current_uid()))
         .arg(&plist_path)
-        .output()
-        .map_err(|e| anyhow::anyhow!("Failed to bootstrap launchd service: {}", e))?;
+        .output();
 
-    if !output.status.success() {
-        let error = String::from_utf8_lossy(&output.stderr);
-        // If service is already loaded, that's okay
-        if !error.contains("already loaded") && !error.contains("service already loaded") {
-            anyhow::bail!("Failed to bootstrap service: {}", error);
+    match output {
+        Ok(output) if output.status.success() => {
+            println!("✓ Service bootstrapped successfully");
+        }
+        Ok(output) => {
+            let error = String::from_utf8_lossy(&output.stderr);
+            // If service is already loaded, that's okay
+            if error.contains("already loaded") || error.contains("service already loaded") {
+                println!("✓ Service already loaded");
+            } else {
+                // Try legacy load command as fallback
+                println!("Trying legacy launchctl load...");
+                let legacy_output = std::process::Command::new("launchctl")
+                    .arg("load")
+                    .arg("-w")
+                    .arg(&plist_path)
+                    .output()
+                    .map_err(|e| anyhow::anyhow!("Failed to load launchd service: {}", e))?;
+
+                if !legacy_output.status.success() {
+                    let legacy_error = String::from_utf8_lossy(&legacy_output.stderr);
+                    if !legacy_error.contains("already loaded") {
+                        anyhow::bail!("Failed to load service: {}", legacy_error);
+                    }
+                }
+                println!("✓ Service loaded successfully (legacy mode)");
+            }
+        }
+        Err(e) => {
+            anyhow::bail!("Failed to execute launchctl: {}", e);
         }
     }
 
@@ -233,7 +263,7 @@ fn generate_plist(exe_path: &std::path::Path, vault_path: &std::path::Path) -> R
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.gclm.securefox</string>
+    <string>club.gclmit.securefox</string>
     
     <key>ProgramArguments</key>
     <array>
