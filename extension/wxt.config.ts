@@ -17,7 +17,8 @@ export default defineConfig({
       'activeTab',
       'clipboardWrite',
       'contextMenus',
-      'notifications'
+      'notifications',
+      'alarms'
     ],
     host_permissions: [
       'http://localhost:8787/*',  // Local API server

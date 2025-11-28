@@ -18,6 +18,7 @@ export const EntryList: React.FC<EntryListProps> = ({view}) => {
     const {showDetailView, showNotification} = useUIStore();
     const [showPassword, setShowPassword] = useState<string | null>(null);
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [copiedUsernameId, setCopiedUsernameId] = useState<string | null>(null);
     const [currentUrl, setCurrentUrl] = useState<string>('');
 
     // 获取登录类型的项目 - 必须在条件返回之前调用所有hooks
@@ -117,6 +118,14 @@ export const EntryList: React.FC<EntryListProps> = ({view}) => {
         }
     };
 
+    const handleCopyUsername = async (item: Item) => {
+        if (item.login?.username) {
+            await navigator.clipboard.writeText(item.login.username);
+            setCopiedUsernameId(item.id);
+            setTimeout(() => setCopiedUsernameId(null), 2000);
+        }
+    };
+
     // ✅ Now all hooks are called - early returns can happen
     // 如果是特殊视图，渲染对应组件 (所有hooks已调用后才返回)
     if (view === 'cards') {
@@ -210,6 +219,20 @@ export const EntryList: React.FC<EntryListProps> = ({view}) => {
                                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                         </svg>
                         <span className="truncate">{item.login.username}</span>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyUsername(item);
+                            }}
+                            className="p-1.5 hover:bg-blue-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                            title="复制用户名"
+                        >
+                            <Copy className={`w-4 h-4 transition-colors ${
+                                copiedUsernameId === item.id
+                                    ? 'text-green-600'
+                                    : 'text-gray-400 hover:text-gray-600'
+                            }`}/>
+                        </button>
                     </div>
                 )}
 
@@ -299,8 +322,8 @@ export const EntryList: React.FC<EntryListProps> = ({view}) => {
                     </>
                 )}
 
-                {/* 其他或全部项目 */}
-                {otherItems.map(item => renderItem(item))}
+                {/* 默认列表显示 */}
+                {!shouldShowCurrentSiteSection && otherItems.map(item => renderItem(item))}
             </div>
         </div>
     );

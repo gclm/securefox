@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
-import { API_BASE_URL, STORAGE_KEYS } from '@/utils/constants';
+import { API_BASE_URL, STORAGE_KEYS, MESSAGE_TYPES, API_ENDPOINTS } from '@/utils/constants';
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -10,10 +10,28 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
+// Endpoints that don't require authentication
+const PUBLIC_ENDPOINTS: string[] = [
+  API_ENDPOINTS.UNLOCK,
+  API_ENDPOINTS.STATUS,
+  API_ENDPOINTS.VERSION,
+];
+
 // Request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
     try {
+      // Check if chrome.runtime is available to send heartbeat
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+          // Send heartbeat to background to reset auto-lock timer
+          // We don't await this because we don't want to slow down the request
+          chrome.runtime.sendMessage({
+              type: MESSAGE_TYPES.HEARTBEAT
+          }).catch(() => {
+              // Ignore errors (e.g. if background script is not ready)
+          });
+      }
+
       // Check if chrome.storage is available
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
         // Get token from storage
@@ -24,7 +42,15 @@ apiClient.interceptors.request.use(
           config.headers.Authorization = `Bearer ${session.token}`;
           console.log('[API] Added auth token to request:', config.url);
         } else {
-          console.warn('[API] No session token found for request:', config.url);
+          // Only warn if the endpoint is not public
+          // Note: config.url might be partial path or full URL depending on usage
+          const isPublic = PUBLIC_ENDPOINTS.some(endpoint => 
+            config.url && (config.url === endpoint || config.url.endsWith(endpoint))
+          );
+          
+          if (!isPublic) {
+            console.warn('[API] No session token found for request:', config.url);
+          }
         }
       }
     } catch (error) {
@@ -51,7 +77,7 @@ apiClient.interceptors.response.use(
         
         // Send message to notify vault is locked
         chrome.runtime.sendMessage({
-          type: 'VAULT_LOCKED',
+          type: MESSAGE_TYPES.VAULT_LOCKED,
         }).catch(() => {
           // Ignore errors if no listener
         });

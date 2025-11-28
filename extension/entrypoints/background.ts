@@ -7,9 +7,8 @@ import {findMatchingItems} from '@/utils/helpers';
 export default defineBackground(() => {
     console.log('SecureFox background service started', {id: browser.runtime.id});
 
-    // Auto-lock timer
-    let autoLockTimer: NodeJS.Timeout | null = null;
-    
+    const AUTO_LOCK_ALARM = 'securefox-auto-lock';
+
     // Session keep-alive timer (for "lock on browser close" mode)
     let keepAliveTimer: NodeJS.Timeout | null = null;
 
@@ -53,13 +52,10 @@ export default defineBackground(() => {
         }
     };
 
-    // Reset auto-lock timer
-    const resetAutoLockTimer = async () => {
-        // Always clear existing timer first
-        if (autoLockTimer) {
-            clearTimeout(autoLockTimer);
-            autoLockTimer = null;
-        }
+    // Reset auto-lock alarm
+    const resetAutoLockAlarm = async () => {
+        // Always clear existing alarm first
+        await chrome.alarms.clear(AUTO_LOCK_ALARM);
 
         // Get auto-lock minutes from storage
         const minutes = await getAutoLockMinutes();
@@ -75,23 +71,35 @@ export default defineBackground(() => {
         // Stop keep-alive when using timed auto-lock
         stopKeepAlive();
 
-        // Set new timer
-        console.log(`Auto-lock timer set for ${minutes} minutes`);
-        autoLockTimer = setTimeout(async () => {
-            console.log('Auto-lock timer expired, locking vault...');
-            // Auto-lock the vault
-            await authApi.lock();
-
-            // Update extension icon
-            await updateExtensionIcon(false);
-
-            // Notify all tabs
-            chrome.runtime.sendMessage({
-                type: MESSAGE_TYPES.VAULT_LOCKED,
-            }).catch(() => {
-            });
-        }, minutes * 60 * 1000);
+        // Set new alarm
+        console.log(`Auto-lock alarm set for ${minutes} minutes`);
+        await chrome.alarms.create(AUTO_LOCK_ALARM, {
+            delayInMinutes: minutes
+        });
     };
+
+    // Handle alarms
+    chrome.alarms.onAlarm.addListener(async (alarm) => {
+        if (alarm.name === AUTO_LOCK_ALARM) {
+            console.log('Auto-lock alarm fired, locking vault...');
+            try {
+                // Auto-lock the vault
+                await authApi.lock();
+
+                // Update extension icon
+                await updateExtensionIcon(false);
+
+                // Notify all tabs
+                await chrome.runtime.sendMessage({
+                    type: MESSAGE_TYPES.VAULT_LOCKED,
+                }).catch(() => {
+                    // Ignore errors if no receivers
+                });
+            } catch (error) {
+                console.error('Failed to process auto-lock alarm:', error);
+            }
+        }
+    });
 
     // Update extension icon based on lock state
     const updateExtensionIcon = async (isUnlocked: boolean) => {
@@ -156,11 +164,25 @@ export default defineBackground(() => {
         // Handle async responses
         (async () => {
             try {
+                // Check if we should reset auto-lock on this message
+                if (message.type !== MESSAGE_TYPES.LOCK_VAULT && 
+                    message.type !== MESSAGE_TYPES.VAULT_LOCKED) {
+                    const isUnlocked = await authApi.isUnlocked();
+                    if (isUnlocked) {
+                        await resetAutoLockAlarm();
+                    }
+                }
+
                 switch (message.type) {
+                    case MESSAGE_TYPES.HEARTBEAT:
+                        // Just resetting the timer is enough (handled above)
+                        sendResponse({success: true});
+                        break;
+
                     case MESSAGE_TYPES.UNLOCK_VAULT:
                         const unlockResult = await authApi.unlock(message.password);
                         if (unlockResult.success) {
-                            resetAutoLockTimer();
+                            await resetAutoLockAlarm();
                             await updateExtensionIcon(true);
                         }
                         sendResponse(unlockResult);
@@ -168,9 +190,7 @@ export default defineBackground(() => {
 
                     case MESSAGE_TYPES.LOCK_VAULT:
                         await authApi.lock();
-                        if (autoLockTimer) {
-                            clearTimeout(autoLockTimer);
-                        }
+                        await chrome.alarms.clear(AUTO_LOCK_ALARM);
                         stopKeepAlive();
                         await updateExtensionIcon(false);
                         sendResponse({success: true});
@@ -247,14 +267,12 @@ export default defineBackground(() => {
                         break;
 
                     case MESSAGE_TYPES.VAULT_UNLOCKED:
-                        resetAutoLockTimer();
+                        await resetAutoLockAlarm();
                         await updateExtensionIcon(true);
                         break;
 
                     case MESSAGE_TYPES.VAULT_LOCKED:
-                        if (autoLockTimer) {
-                            clearTimeout(autoLockTimer);
-                        }
+                        await chrome.alarms.clear(AUTO_LOCK_ALARM);
                         stopKeepAlive();
                         await updateExtensionIcon(false);
                         break;
@@ -263,7 +281,7 @@ export default defineBackground(() => {
                         // Settings updated, restart timer if unlocked
                         const isCurrentlyUnlocked = await authApi.isUnlocked();
                         if (isCurrentlyUnlocked) {
-                            await resetAutoLockTimer();
+                            await resetAutoLockAlarm();
                         }
                         sendResponse({success: true});
                         break;
@@ -299,6 +317,19 @@ export default defineBackground(() => {
         } else if (details.reason === 'update') {
             console.log('SecureFox updated to version', chrome.runtime.getManifest().version);
         }
+        
+        // Initialize context menus
+        chrome.contextMenus.create({
+            id: 'securefox-fill',
+            title: 'Fill credentials',
+            contexts: ['editable'],
+        });
+
+        chrome.contextMenus.create({
+            id: 'securefox-generate',
+            title: 'Generate password',
+            contexts: ['editable'],
+        });
     });
 
     // Handle browser startup
@@ -314,7 +345,7 @@ export default defineBackground(() => {
     chrome.tabs.onActivated.addListener(async (activeInfo) => {
         const isUnlocked = await authApi.isUnlocked();
         if (isUnlocked) {
-            resetAutoLockTimer();
+            await resetAutoLockAlarm();
         }
 
         // Update badge for newly activated tab
@@ -391,21 +422,6 @@ export default defineBackground(() => {
         }, 150); // Slightly longer delay to ensure accurate state
     });
 
-    // Create context menu items
-    chrome.runtime.onInstalled.addListener(() => {
-        chrome.contextMenus.create({
-            id: 'securefox-fill',
-            title: 'Fill credentials',
-            contexts: ['editable'],
-        });
-
-        chrome.contextMenus.create({
-            id: 'securefox-generate',
-            title: 'Generate password',
-            contexts: ['editable'],
-        });
-    });
-
     // Handle context menu clicks
     chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         if (!tab?.id) return;
@@ -447,7 +463,7 @@ export default defineBackground(() => {
         await updateExtensionIcon(isUnlocked);
 
         if (isUnlocked) {
-            resetAutoLockTimer();
+            await resetAutoLockAlarm();
         }
     })();
 });

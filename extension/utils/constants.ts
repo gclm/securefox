@@ -64,6 +64,7 @@ export const MESSAGE_TYPES = {
     UNLOCK_VAULT: 'UNLOCK_VAULT',
     LOCK_VAULT: 'LOCK_VAULT',
     GET_STATUS: 'GET_STATUS',
+    HEARTBEAT: 'HEARTBEAT', // Keep-alive signal to reset auto-lock timer
 
     // From background to content/popup
     VAULT_LOCKED: 'VAULT_LOCKED',
