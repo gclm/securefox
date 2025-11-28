@@ -9,6 +9,49 @@ export default defineBackground(() => {
 
     // Auto-lock timer
     let autoLockTimer: NodeJS.Timeout | null = null;
+    
+    // Session keep-alive timer (for "lock on browser close" mode)
+    let keepAliveTimer: NodeJS.Timeout | null = null;
+
+    // Start session keep-alive mechanism (for "lock on browser close" mode)
+    const startKeepAlive = async () => {
+        // Clear existing keep-alive timer
+        if (keepAliveTimer) {
+            clearInterval(keepAliveTimer);
+            keepAliveTimer = null;
+        }
+
+        console.log('Starting session keep-alive (heartbeat every 10 minutes)');
+        
+        // Send heartbeat every 10 minutes to keep session alive
+        keepAliveTimer = setInterval(async () => {
+            try {
+                const isUnlocked = await authApi.isUnlocked();
+                if (isUnlocked) {
+                    // Make a lightweight API call to refresh session
+                    await authApi.getStatus();
+                    console.log('Session keep-alive: heartbeat sent');
+                } else {
+                    // If locked, stop keep-alive
+                    if (keepAliveTimer) {
+                        clearInterval(keepAliveTimer);
+                        keepAliveTimer = null;
+                    }
+                }
+            } catch (error) {
+                console.error('Session keep-alive failed:', error);
+            }
+        }, 10 * 60 * 1000); // Every 10 minutes
+    };
+
+    // Stop session keep-alive
+    const stopKeepAlive = () => {
+        if (keepAliveTimer) {
+            clearInterval(keepAliveTimer);
+            keepAliveTimer = null;
+            console.log('Session keep-alive stopped');
+        }
+    };
 
     // Reset auto-lock timer
     const resetAutoLockTimer = async () => {
@@ -21,11 +64,16 @@ export default defineBackground(() => {
         // Get auto-lock minutes from storage
         const minutes = await getAutoLockMinutes();
 
-        // -1 means lock on browser close, don't set timer
+        // -1 means lock on browser close, use keep-alive instead
         if (minutes === -1) {
-            console.log('Auto-lock: Following browser close mode (no timer)');
+            console.log('Auto-lock: Following browser close mode (using keep-alive)');
+            stopKeepAlive();
+            startKeepAlive();
             return;
         }
+
+        // Stop keep-alive when using timed auto-lock
+        stopKeepAlive();
 
         // Set new timer
         console.log(`Auto-lock timer set for ${minutes} minutes`);
@@ -67,22 +115,29 @@ export default defineBackground(() => {
     // Update badge based on matching entries for URL
     const updateBadge = async (url: string, tabId?: number) => {
         try {
+            // First check if vault is unlocked
             const isUnlocked = await authApi.isUnlocked();
 
-            // Get all login entries and match using frontend logic
+            // If locked, clear badge and return early (don't call API)
+            if (!isUnlocked) {
+                await chrome.action.setBadgeText({text: '', tabId});
+                return;
+            }
+
+            // Only fetch entries when unlocked
             const allEntries = await entriesApi.getEntries();
             const matchingEntries = findMatchingItems(allEntries, url);
             const count = matchingEntries.length;
 
-            // Update badge - show count even when locked
+            // Update badge - show count
             if (count > 0) {
                 await chrome.action.setBadgeText({
                     text: count.toString(),
                     tabId
                 });
-                // Use different color based on lock state
+                // Use blue color for unlocked state
                 await chrome.action.setBadgeBackgroundColor({
-                    color: isUnlocked ? '#3b82f6' : '#94a3b8', // Blue when unlocked, gray when locked
+                    color: '#3b82f6', // Blue
                     tabId
                 });
             } else {
@@ -116,6 +171,7 @@ export default defineBackground(() => {
                         if (autoLockTimer) {
                             clearTimeout(autoLockTimer);
                         }
+                        stopKeepAlive();
                         await updateExtensionIcon(false);
                         sendResponse({success: true});
                         break;
@@ -199,6 +255,7 @@ export default defineBackground(() => {
                         if (autoLockTimer) {
                             clearTimeout(autoLockTimer);
                         }
+                        stopKeepAlive();
                         await updateExtensionIcon(false);
                         break;
 

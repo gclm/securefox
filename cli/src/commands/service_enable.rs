@@ -269,7 +269,7 @@ fn generate_plist(exe_path: &std::path::Path, vault_path: &std::path::Path) -> R
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>exec {} --vault {} service run > {} 2> {}</string>
+        <string>exec {} --vault {} service run --timeout 1800 > {} 2> {}</string>
     </array>
     
     <key>RunAtLoad</key>

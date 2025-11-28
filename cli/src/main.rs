@@ -243,7 +243,7 @@ enum ServiceCommands {
         host: String,
 
         /// Unlock timeout in seconds
-        #[arg(short = 't', long, default_value = "900")]
+        #[arg(short = 't', long, default_value = "1800")]
         timeout: u64,
     },
 
@@ -261,7 +261,7 @@ enum ServiceCommands {
         host: String,
 
         /// Unlock timeout in seconds
-        #[arg(short = 't', long, default_value = "900")]
+        #[arg(short = 't', long, default_value = "1800")]
         timeout: u64,
     },
 
@@ -286,7 +286,7 @@ enum ServiceCommands {
         host: String,
 
         /// Unlock timeout in seconds
-        #[arg(short = 't', long, default_value = "900")]
+        #[arg(short = 't', long, default_value = "1800")]
         timeout: u64,
     },
 }
