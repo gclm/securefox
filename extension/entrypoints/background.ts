@@ -12,6 +12,7 @@ export default defineBackground(() => {
 
     // Reset auto-lock timer
     const resetAutoLockTimer = async () => {
+        // Always clear existing timer first
         if (autoLockTimer) {
             clearTimeout(autoLockTimer);
             autoLockTimer = null;
@@ -22,10 +23,14 @@ export default defineBackground(() => {
 
         // -1 means lock on browser close, don't set timer
         if (minutes === -1) {
+            console.log('Auto-lock: Following browser close mode (no timer)');
             return;
         }
 
+        // Set new timer
+        console.log(`Auto-lock timer set for ${minutes} minutes`);
         autoLockTimer = setTimeout(async () => {
+            console.log('Auto-lock timer expired, locking vault...');
             // Auto-lock the vault
             await authApi.lock();
 
@@ -283,8 +288,11 @@ export default defineBackground(() => {
         // Check if user has "lock on browser close" enabled
         const minutes = await getAutoLockMinutes();
         if (minutes !== -1) {
+            console.log('Window closed but not using lock-on-close mode, ignoring');
             return; // Not using lock on browser close
         }
+
+        console.log(`Window ${windowId} closed, checking if should lock...`);
 
         // Use a small delay to ensure window list is updated
         setTimeout(async () => {
@@ -292,11 +300,15 @@ export default defineBackground(() => {
                 // Check if any windows remain
                 const windows = await chrome.windows.getAll({windowTypes: ['normal']});
                 
+                console.log(`Remaining windows: ${windows.length}`);
+                
                 // Only lock if NO normal browser windows remain
                 if (windows.length === 0) {
                     // Additional check: verify no tabs exist at all
                     // This prevents locking when tabs are moved/merged by extensions
                     const allTabs = await chrome.tabs.query({});
+                    
+                    console.log(`Remaining tabs: ${allTabs.length}`);
                     
                     // If there are still tabs (e.g., in extension popups or suspended by tab managers),
                     // don't lock - the browser is still running
@@ -310,7 +322,11 @@ export default defineBackground(() => {
                         console.log('All browser windows closed, locking vault...');
                         await authApi.lock();
                         await updateExtensionIcon(false);
+                    } else {
+                        console.log('Vault already locked, no action needed');
                     }
+                } else {
+                    console.log('Browser windows still open, not locking');
                 }
             } catch (error) {
                 console.error('Error checking windows on close:', error);
