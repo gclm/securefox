@@ -267,11 +267,9 @@ fn generate_plist(exe_path: &std::path::Path, vault_path: &std::path::Path) -> R
     
     <key>ProgramArguments</key>
     <array>
-        <string>{}</string>
-        <string>--vault</string>
-        <string>{}</string>
-        <string>service</string>
-        <string>start</string>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>exec {} --vault {} service run > {} 2> {}</string>
     </array>
     
     <key>RunAtLoad</key>
@@ -280,23 +278,23 @@ fn generate_plist(exe_path: &std::path::Path, vault_path: &std::path::Path) -> R
     <key>KeepAlive</key>
     <true/>
     
-    <key>StandardOutPath</key>
-    <string>{}</string>
-    
-    <key>StandardErrorPath</key>
-    <string>{}</string>
-    
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>RUST_LOG</key>
+        <string>info</string>
     </dict>
+    
+    <key>WorkingDirectory</key>
+    <string>{}</string>
 </dict>
 </plist>"#,
         exe_path.display(),
         vault_path.display(),
         log_file.display(),
-        err_file.display()
+        err_file.display(),
+        vault_path.display()
     );
 
     Ok(plist)
