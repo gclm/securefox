@@ -32,6 +32,19 @@ pub async fn execute() -> Result<()> {
         println!("PID: {}", pid);
         println!("API: http://127.0.0.1:8787");
 
+        // Get binary path from process
+        #[cfg(target_os = "macos")]
+        {
+            if let Ok(binary_path) = get_process_binary(pid) {
+                println!("Binary: {}", binary_path);
+
+                // Get version of the running binary
+                if let Ok(version) = get_binary_version(&binary_path) {
+                    println!("Version: {}", version);
+                }
+            }
+        }
+
         // Try to get process info
         #[cfg(target_os = "macos")]
         {
@@ -75,5 +88,46 @@ fn check_process_running(pid: u32) -> bool {
     #[cfg(not(unix))]
     {
         false
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn get_process_binary(pid: u32) -> Result<String> {
+    use std::process::Command;
+
+    let output = Command::new("ps")
+        .arg("-p")
+        .arg(pid.to_string())
+        .arg("-o")
+        .arg("comm=")
+        .output()?;
+
+    if output.status.success() {
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(path)
+    } else {
+        anyhow::bail!("Failed to get process binary path")
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn get_binary_version(binary_path: &str) -> Result<String> {
+    use std::process::Command;
+
+    let output = Command::new(binary_path).arg("version").output();
+
+    match output {
+        Ok(output) if output.status.success() => {
+            let version_str = String::from_utf8_lossy(&output.stdout);
+
+            // Parse version line
+            for line in version_str.lines() {
+                if let Some(value) = line.strip_prefix("Version:") {
+                    return Ok(value.trim().to_string());
+                }
+            }
+            Ok("unknown".to_string())
+        }
+        _ => Ok("unknown".to_string()),
     }
 }

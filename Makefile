@@ -85,9 +85,17 @@ update: release
 	@echo "$(CYAN)Updating local securefox installation...$(NC)"
 	@# Check if securefox is installed
 	@if [ -f /usr/local/bin/securefox ]; then \
-		echo "$(YELLOW)Stopping running service (if any)...$(NC)"; \
-		securefox service stop 2>/dev/null || true; \
-		sleep 1; \
+		echo "$(YELLOW)Checking if service is running...$(NC)"; \
+		if launchctl list | grep -q club.gclmit.securefox; then \
+			echo "$(YELLOW)Stopping launchd service...$(NC)"; \
+			launchctl bootout gui/$$(id -u) ~/Library/LaunchAgents/club.gclmit.securefox.plist 2>/dev/null || \
+			launchctl unload ~/Library/LaunchAgents/club.gclmit.securefox.plist 2>/dev/null || true; \
+			sleep 1; \
+		else \
+			echo "$(YELLOW)Stopping manual service (if any)...$(NC)"; \
+			securefox service stop 2>/dev/null || true; \
+			sleep 1; \
+		fi; \
 	fi
 	@echo "$(CYAN)Installing new version...$(NC)"
 	@sudo cp target/release/securefox /usr/local/bin/securefox
@@ -97,8 +105,19 @@ update: release
 	@echo ""
 	@securefox version
 	@echo ""
-	@echo "To restart service:"
-	@echo "  securefox service start"
+	@# Auto-restart launchd service if plist exists
+	@if [ -f ~/Library/LaunchAgents/club.gclmit.securefox.plist ]; then \
+		echo "$(CYAN)Restarting launchd service...$(NC)"; \
+		launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/club.gclmit.securefox.plist 2>/dev/null || \
+		launchctl load ~/Library/LaunchAgents/club.gclmit.securefox.plist 2>/dev/null || true; \
+		echo "$(GREEN)✓ Service restarted$(NC)"; \
+		echo ""; \
+		echo "Check service status:"; \
+		echo "  securefox service status"; \
+	else \
+		echo "To restart service:"; \
+		echo "  securefox service start"; \
+	fi
 
 # Alias for update
 upgrade: update
