@@ -45,6 +45,7 @@ parking_lot = "0.12"
 
 # Password generation
 passwords = "3.1"
+tracing-subscriber.workspace = true
 
 [build-dependencies]
 chrono = "0.4"

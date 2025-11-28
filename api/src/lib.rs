@@ -16,7 +16,8 @@ use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_http::{
     cors::{Any, CorsLayer},
-    trace::TraceLayer,
+    trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
+    LatencyUnit,
 };
 
 pub use error::{ApiError, Result};
@@ -86,20 +87,46 @@ pub fn create_app(vault_path: PathBuf, unlock_timeout: Duration) -> Router {
         .merge(ws_routes)
         .layer(
             ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
+                .layer(
+                    TraceLayer::new_for_http()
+                        .make_span_with(DefaultMakeSpan::new().level(tracing::Level::INFO))
+                        .on_response(
+                            DefaultOnResponse::new()
+                                .level(tracing::Level::INFO)
+                                .latency_unit(LatencyUnit::Millis),
+                        ),
+                )
                 .layer(cors),
         )
         .with_state(state)
 }
 
 pub async fn run(vault_path: PathBuf, host: String, port: u16, unlock_timeout: u64) -> Result<()> {
-    let app = create_app(vault_path, Duration::from_secs(unlock_timeout));
+    // Initialize tracing with better formatting (only if not already initialized)
+    use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
+
+    let _ = tracing_subscriber::fmt()
+        .with_target(false)
+        .with_thread_ids(false)
+        .with_level(true)
+        .with_ansi(false) // Disable colors for file logs
+        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE) // Log both span creation and closure
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .try_init();
+
+    let app = create_app(vault_path.clone(), Duration::from_secs(unlock_timeout));
 
     let addr: SocketAddr = format!("{}:{}", host, port)
         .parse()
         .map_err(|e| ApiError::Internal(format!("Invalid address: {}", e)))?;
 
-    tracing::info!("SecureFox API listening on {}", addr);
+    tracing::info!("SecureFox API Server Started");
+    tracing::info!("  Listening: {}", addr);
+    tracing::info!("  Vault: {}", vault_path.display());
+    tracing::info!("  Unlock Timeout: {} seconds", unlock_timeout);
+    tracing::info!("{}", "=".repeat(60));
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await
