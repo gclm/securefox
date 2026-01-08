@@ -245,6 +245,82 @@ export default defineBackground(() => {
                         }
                         break;
 
+                    case 'AUTOFILL_CREDENTIALS':
+                        // Get credentials by entryId and autofill to active tab
+                        try {
+                            const {entryId} = message;
+                            const allEntries = await entriesApi.getEntries();
+                            const entry = allEntries.find((e: any) => e.id === entryId);
+
+                            if (!entry) {
+                                sendResponse({success: false, error: 'Entry not found'});
+                                break;
+                            }
+
+                            // Get the active tab
+                            const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
+
+                            if (!activeTab || !activeTab.id) {
+                                sendResponse({success: false, error: 'No active tab'});
+                                break;
+                            }
+
+                            // Send fill credentials message to content script
+                            await chrome.tabs.sendMessage(activeTab.id, {
+                                type: MESSAGE_TYPES.FILL_CREDENTIALS,
+                                data: {
+                                    username: entry.login?.username || '',
+                                    password: entry.login?.password || '',
+                                },
+                            });
+
+                            sendResponse({success: true});
+                        } catch (error: any) {
+                            console.error('Failed to autofill credentials:', error);
+                            sendResponse({success: false, error: error.message});
+                        }
+                        break;
+
+                    case 'GET_TOTP':
+                        // Get TOTP code for an entry
+                        try {
+                            const {entryId} = message;
+                            const totpResponse = await entriesApi.getTOTP(entryId);
+                            sendResponse({code: totpResponse.code});
+                        } catch (error: any) {
+                            console.error('Failed to get TOTP:', error);
+                            sendResponse({error: error.message});
+                        }
+                        break;
+
+                    case 'OPEN_POPUP':
+                        // Handle request to open extension popup with optional action
+                        try {
+                            const {action} = message;
+
+                            // Store the action in storage so popup can read it when opened
+                            if (action === 'add') {
+                                await chrome.storage.local.set({'pendingAction': 'openAddModal'});
+                            }
+
+                            // Try to open popup (works in some browsers/contexts)
+                            // Note: chrome.action.openPopup() is only available in certain contexts
+                            try {
+                                if (chrome.action?.openPopup) {
+                                    await chrome.action.openPopup();
+                                }
+                            } catch (e) {
+                                // If openPopup is not available or fails, user will need to click the extension icon
+                                console.log('Cannot open popup programmatically, waiting for user to click extension icon');
+                            }
+
+                            sendResponse({success: true});
+                        } catch (error: any) {
+                            console.error('Failed to handle OPEN_POPUP:', error);
+                            sendResponse({success: false, error: error.message});
+                        }
+                        break;
+
                     case MESSAGE_TYPES.FILL_CREDENTIALS:
                         // Forward to content script in the active tab
                         if (sender.tab?.id) {

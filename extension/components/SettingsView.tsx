@@ -1,6 +1,18 @@
 import React, {useEffect, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
-import {ArrowLeft, Bell, ChevronRight, HelpCircle, Info, Link, Lock, LucideIcon, Shield} from 'lucide-react';
+import {
+    ArrowLeft,
+    Bell,
+    ChevronRight,
+    HelpCircle,
+    Info,
+    Link,
+    Lock,
+    LucideIcon,
+    MousePointer,
+    Shield,
+    Zap
+} from 'lucide-react';
 import {useAuthStore, useUIStore} from '@/store';
 import {AUTO_LOCK_OPTIONS} from '@/utils/constants';
 import {getVersion} from '@/lib/api';
@@ -41,7 +53,14 @@ type SettingItem =
 };
 
 export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
-    const {autoLockMinutes, setAutoLockMinutes} = useUIStore();
+    const {
+        autoLockMinutes,
+        setAutoLockMinutes,
+        clickToFill,
+        setClickToFill,
+        showQuickCopy,
+        setShowQuickCopy
+    } = useUIStore();
     const {lock} = useAuthStore();
     const [showAutoLockPicker, setShowAutoLockPicker] = useState(false);
     const [showUriMatchPicker, setShowUriMatchPicker] = useState(false);
@@ -123,6 +142,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                     label: 'URI 匹配逻辑',
                     description: getUriMatchTypeLabel(defaultUriMatchType),
                     action: () => setShowUriMatchPicker(true)
+                }
+            ]
+        },
+        {
+            title: '用户体验',
+            items: [
+                {
+                    icon: MousePointer,
+                    label: '点击直接填充',
+                    description: '点击列表项直接填充凭据',
+                    type: 'toggle',
+                    value: clickToFill,
+                    action: async () => {
+                        await setClickToFill(!clickToFill);
+                    }
+                },
+                {
+                    icon: Zap,
+                    label: '快速复制按钮',
+                    description: '在列表中显示快速复制按钮',
+                    type: 'toggle',
+                    value: showQuickCopy,
+                    action: async () => {
+                        await setShowQuickCopy(!showQuickCopy);
+                    }
                 }
             ]
         },

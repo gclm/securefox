@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {CreditCard, Eye, EyeOff, FileText, Key, User, X, Zap} from 'lucide-react';
+import {CreditCard, Eye, EyeOff, FileText, Globe, Key, Plus, User, X, Zap} from 'lucide-react';
 import {useUIStore, useVaultStore} from '@/store';
 import {ItemType} from '@/types';
 import {Input} from '@/components/ui/input';
@@ -9,7 +9,12 @@ import {PasswordGenerator} from '@/components/PasswordGenerator';
 import {browser} from 'wxt/browser';
 import {detectCardBrand} from '@/utils/cardDetector';
 
-export const AddItemModal: React.FC = () => {
+interface AddItemModalProps {
+    pendingItem?: {name: string; uri: string} | null;
+    onItemUsed?: () => void;
+}
+
+export const AddItemModal: React.FC<AddItemModalProps> = ({pendingItem, onItemUsed}) => {
     const {isAddItemModalOpen, setAddItemModalOpen, showNotification} = useUIStore();
     const {addItem} = useVaultStore();
 
@@ -28,10 +33,23 @@ export const AddItemModal: React.FC = () => {
         notes: '',
     });
 
+    // 处理待填充的项数据（从内联图标点击创建）
+    useEffect(() => {
+        if (isAddItemModalOpen && pendingItem && itemType === ItemType.Login) {
+            setLoginForm(prev => ({
+                ...prev,
+                name: pendingItem.name || prev.name,
+                urls: pendingItem.uri ? [pendingItem.uri] : prev.urls,
+            }));
+            // 标记待填充项已使用
+            onItemUsed?.();
+        }
+    }, [isAddItemModalOpen, pendingItem, itemType, onItemUsed]);
+
     // 当模态框打开且类型为登录时,自动获取当前活动标签页的 URL
     useEffect(() => {
         const fetchActiveTabUrl = async () => {
-            if (isAddItemModalOpen && itemType === ItemType.Login) {
+            if (isAddItemModalOpen && itemType === ItemType.Login && !pendingItem) {
                 try {
                     const tabs = await browser.tabs.query({active: true, currentWindow: true});
                     if (tabs[0]?.url) {
@@ -51,7 +69,7 @@ export const AddItemModal: React.FC = () => {
             }
         };
         fetchActiveTabUrl();
-    }, [isAddItemModalOpen, itemType]);
+    }, [isAddItemModalOpen, itemType, pendingItem]);
 
     // 手动填充当前网站地址
     const handleFillCurrentUrl = async () => {
@@ -466,17 +484,19 @@ export const AddItemModal: React.FC = () => {
                                         <button
                                             type="button"
                                             onClick={handleFillCurrentUrl}
-                                            className="text-xs text-green-500 hover:text-green-600 transition-colors"
+                                            className="flex items-center gap-1 text-xs px-2 py-1 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                             title="填充当前网站地址"
                                         >
-                                            🌐 填充当前
+                                            <Globe className="w-3 h-3"/>
+                                            填充当前
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setLoginForm({...loginForm, urls: [...loginForm.urls, '']})}
-                                            className="text-xs text-blue-500 hover:text-blue-600"
+                                            className="flex items-center gap-1 text-xs px-2 py-1 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                         >
-                                            + 添加网址
+                                            <Plus className="w-3 h-3"/>
+                                            添加网址
                                         </button>
                                     </div>
                                 </div>

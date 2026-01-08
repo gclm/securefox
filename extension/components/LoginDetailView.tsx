@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {ArrowLeft, Copy, Edit2, ExternalLink, Eye, EyeOff, Globe, Save, Trash2, X} from 'lucide-react';
+import {ArrowLeft, Copy, Edit2, ExternalLink, Eye, EyeOff, Globe, Plus, Save, Trash2, X} from 'lucide-react';
 import {useUIStore, useVaultStore} from '@/store';
 import {Item} from '@/types';
 import {Input} from '@/components/ui/input';
@@ -221,7 +221,7 @@ export const LoginDetailView: React.FC<LoginDetailViewProps> = ({onBack}) => {
     }
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50">
+        <div className="flex flex-col h-screen bg-white">
             {/* Header */}
             <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
                 <div className="flex items-center gap-3">
@@ -326,17 +326,19 @@ export const LoginDetailView: React.FC<LoginDetailViewProps> = ({onBack}) => {
                                     <button
                                         type="button"
                                         onClick={handleFillCurrentUrl}
-                                        className="text-xs text-green-500 hover:text-green-600 transition-colors"
+                                        className="flex items-center gap-1 text-xs px-2 py-1 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                         title="填充当前网站地址"
                                     >
-                                        🌐 填充当前
+                                        <Globe className="w-3 h-3"/>
+                                        填充当前
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setForm({...form, urls: [...form.urls, '']})}
-                                        className="text-xs text-blue-500 hover:text-blue-600"
+                                        className="flex items-center gap-1 text-xs px-2 py-1 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                     >
-                                        + 添加网址
+                                        <Plus className="w-3 h-3"/>
+                                        添加网址
                                     </button>
                                 </div>
                             </div>

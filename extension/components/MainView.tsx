@@ -10,7 +10,12 @@ import {LoginDetailView} from '@/components/LoginDetailView';
 import {NoteDetailView} from '@/components/NoteDetailView';
 import {CardDetailView} from '@/components/CardDetailView';
 
-export const MainView: React.FC = () => {
+interface MainViewProps {
+    pendingAddItem?: {name: string; uri: string} | null;
+    onPendingItemUsed?: () => void;
+}
+
+export const MainView: React.FC<MainViewProps> = ({pendingAddItem, onPendingItemUsed}) => {
     const [showSettings, setShowSettings] = useState(false);
 
     // 将所有hooks调用移到条件语句之前
@@ -230,7 +235,7 @@ export const MainView: React.FC = () => {
             </nav>
 
             {/* Add Item Modal */}
-            <AddItemModal/>
+            <AddItemModal pendingItem={pendingAddItem} onItemUsed={onPendingItemUsed} />
         </div>
     );
 };

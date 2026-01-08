@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {Clock, Copy, Eye, EyeOff, Globe, Key, Star} from 'lucide-react';
+import {Check, Clock, Copy, Eye, EyeOff, Globe, Key, Shield, Star} from 'lucide-react';
 import {useUIStore, useVaultStore} from '@/store';
 import {CreditCardView} from './CreditCardView';
 import {FavoritesView} from './FavoritesView';
@@ -15,9 +15,10 @@ interface EntryListProps {
 export const EntryList: React.FC<EntryListProps> = ({view}) => {
     // ✅ All hooks at the top level
     const {items, searchQuery, selectedFolder} = useVaultStore();
-    const {showDetailView, showNotification} = useUIStore();
+    const {showDetailView, showNotification, clickToFill, showQuickCopy} = useUIStore();
     const [showPassword, setShowPassword] = useState<string | null>(null);
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [copyType, setCopyType] = useState<'username' | 'password' | 'totp' | null>(null);
     const [currentUrl, setCurrentUrl] = useState<string>('');
 
     // 获取登录类型的项目 - 必须在条件返回之前调用所有hooks
@@ -113,7 +114,107 @@ export const EntryList: React.FC<EntryListProps> = ({view}) => {
         if (item.login?.password) {
             await navigator.clipboard.writeText(item.login.password);
             setCopiedId(item.id);
-            setTimeout(() => setCopiedId(null), 2000);
+            setCopyType('password');
+            showNotification({
+                type: 'success',
+                title: '已复制',
+                message: '密码已复制到剪贴板'
+            });
+            setTimeout(() => {
+                setCopiedId(null);
+                setCopyType(null);
+            }, 2000);
+        }
+    };
+
+    const handleCopyUsername = async (item: Item) => {
+        if (item.login?.username) {
+            await navigator.clipboard.writeText(item.login.username);
+            setCopiedId(item.id);
+            setCopyType('username');
+            showNotification({
+                type: 'success',
+                title: '已复制',
+                message: '用户名已复制到剪贴板'
+            });
+            setTimeout(() => {
+                setCopiedId(null);
+                setCopyType(null);
+            }, 2000);
+        }
+    };
+
+    const handleCopyTOTP = async (item: Item) => {
+        if (item.login?.totp) {
+            try {
+                // Request TOTP from background
+                const response = await chrome.runtime.sendMessage({
+                    type: 'GET_TOTP',
+                    entryId: item.id,
+                });
+
+                if (response?.code) {
+                    await navigator.clipboard.writeText(response.code);
+                    setCopiedId(item.id);
+                    setCopyType('totp');
+                    showNotification({
+                        type: 'success',
+                        title: '已复制',
+                        message: `验证码 ${response.code} 已复制`
+                    });
+                    setTimeout(() => {
+                        setCopiedId(null);
+                        setCopyType(null);
+                    }, 2000);
+                }
+            } catch (error) {
+                showNotification({
+                    type: 'error',
+                    title: '复制失败',
+                    message: '无法获取验证码'
+                });
+            }
+        }
+    };
+
+    const handleAutofill = async (item: Item) => {
+        try {
+            // Request autofill from background script
+            const response = await chrome.runtime.sendMessage({
+                type: 'AUTOFILL_CREDENTIALS',
+                entryId: item.id,
+            });
+
+            if (response?.success) {
+                showNotification({
+                    type: 'success',
+                    title: '已填充',
+                    message: `已填充 ${item.name} 的凭据`
+                });
+            } else {
+                showNotification({
+                    type: 'error',
+                    title: '填充失败',
+                    message: '无法自动填充，请手动复制'
+                });
+            }
+        } catch (error) {
+            console.error('Autofill failed:', error);
+            showNotification({
+                type: 'error',
+                title: '填充失败',
+                message: '无法自动填充，请手动复制'
+            });
+        }
+    };
+
+    const handleItemClick = (item: Item) => {
+        if (clickToFill && item.type === ItemType.Login) {
+            // Direct autofill
+            handleAutofill(item);
+        } else {
+            // Show detail view
+            showDetailView(item.id, 'login');
         }
     };
 
@@ -185,88 +286,129 @@ export const EntryList: React.FC<EntryListProps> = ({view}) => {
     }
 
 
-    const renderItem = (item: Item) => (
-        <div
-            key={item.id}
-            className="flex items-center gap-4 p-4 rounded-xl bg-white hover:shadow-lg cursor-pointer transition-all duration-200 border border-gray-200 hover:border-blue-300 group"
-            onClick={() => showDetailView(item.id, 'login')}
-        >
-            <div
-                className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
-                <Key className="w-6 h-6 text-white"/>
-            </div>
+    const renderItem = (item: Item) => {
+        const isCopied = copiedId === item.id;
+        const isCopiedUsername = isCopied && copyType === 'username';
+        const isCopiedPassword = isCopied && copyType === 'password';
+        const isCopiedTotp = isCopied && copyType === 'totp';
 
-            <div className="flex-1 min-w-0 space-y-2">
-                <div className="flex items-center gap-2">
-                    <h4 className="text-base font-semibold text-gray-900 truncate">{item.name}</h4>
-                    {item.favorite && <Star className="w-4 h-4 text-amber-500 fill-amber-500 flex-shrink-0"/>}
+        return (
+            <div
+                key={item.id}
+                className="flex items-center gap-4 p-4 rounded-xl bg-white hover:shadow-lg cursor-pointer transition-all duration-200 border border-gray-200 hover:border-blue-300 group"
+                onClick={() => handleItemClick(item)}
+            >
+                <div
+                    className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
+                    <Key className="w-6 h-6 text-white"/>
                 </div>
 
-                {item.login?.username && (
-                    <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor"
-                             viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                        </svg>
-                        <span className="truncate">{item.login.username}</span>
-                    </div>
-                )}
-
-                {item.login?.password && (
+                <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center gap-2">
-                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor"
-                             viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                        </svg>
-                        <span className="text-xs font-mono text-gray-400 flex-shrink-0">
-              {showPassword === item.id ? item.login.password : '••••••••'}
-            </span>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowPassword(showPassword === item.id ? null : item.id);
-                                }}
-                                className="p-1.5 hover:bg-blue-50 rounded-md transition-colors"
-                                title="显示/隐藏密码"
-                            >
-                                {showPassword === item.id ? (
-                                    <EyeOff className="w-4 h-4 text-gray-500 hover:text-gray-700"/>
-                                ) : (
-                                    <Eye className="w-4 h-4 text-gray-500 hover:text-gray-700"/>
-                                )}
-                            </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCopyPassword(item);
-                                }}
-                                className="p-1.5 hover:bg-blue-50 rounded-md transition-colors"
-                                title="复制密码"
-                            >
-                                <Copy className={`w-4 h-4 transition-colors ${
-                                    copiedId === item.id
-                                        ? 'text-green-600'
-                                        : 'text-gray-500 hover:text-gray-700'
-                                }`}/>
-                            </button>
-                        </div>
+                        <h4 className="text-base font-semibold text-gray-900 truncate">{item.name}</h4>
+                        {item.favorite && <Star className="w-4 h-4 text-amber-500 fill-amber-500 flex-shrink-0"/>}
                     </div>
-                )}
-            </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
-                {item.login?.totp && (
-                    <div
-                        className="px-2.5 py-1 rounded-md bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 text-green-700 text-xs font-medium">
-                        2FA
-                    </div>
-                )}
+                    {item.login?.username && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor"
+                                 viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                            <span className="truncate">{item.login.username}</span>
+                            {showQuickCopy && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCopyUsername(item);
+                                    }}
+                                    className="p-1.5 hover:bg-blue-50 rounded-md transition-colors"
+                                    title="复制用户名"
+                                >
+                                    {isCopiedUsername ? (
+                                        <Check className="w-4 h-4 text-green-600"/>
+                                    ) : (
+                                        <Copy className="w-4 h-4 text-gray-500 hover:text-gray-700"/>
+                                    )}
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {item.login?.password && (
+                        <div className="flex items-center gap-2">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor"
+                                 viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            <span className="text-xs font-mono text-gray-400 flex-shrink-0">
+                  {showPassword === item.id ? item.login.password : '••••••••'}
+                </span>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowPassword(showPassword === item.id ? null : item.id);
+                                    }}
+                                    className="p-1.5 hover:bg-blue-50 rounded-md transition-colors"
+                                    title="显示/隐藏密码"
+                                >
+                                    {showPassword === item.id ? (
+                                        <EyeOff className="w-4 h-4 text-gray-500 hover:text-gray-700"/>
+                                    ) : (
+                                        <Eye className="w-4 h-4 text-gray-500 hover:text-gray-700"/>
+                                    )}
+                                </button>
+                                {showQuickCopy && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleCopyPassword(item);
+                                        }}
+                                        className="p-1.5 hover:bg-blue-50 rounded-md transition-colors"
+                                        title="复制密码"
+                                    >
+                                        {isCopiedPassword ? (
+                                            <Check className="w-4 h-4 text-green-600"/>
+                                        ) : (
+                                            <Copy className="w-4 h-4 text-gray-500 hover:text-gray-700"/>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    {item.login?.totp && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyTOTP(item);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 text-green-700 text-xs font-medium hover:from-green-100 hover:to-emerald-100 transition-all"
+                            title="复制验证码"
+                        >
+                            {isCopiedTotp ? (
+                                <>
+                                    <Check className="w-3 h-3"/>
+                                    <span>已复制</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Shield className="w-3 h-3"/>
+                                    <span>2FA</span>
+                                </>
+                            )}
+                        </button>
+                    )}
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="p-4 bg-gray-50">

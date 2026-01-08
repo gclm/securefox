@@ -81,44 +81,27 @@ export default defineContentScript({
             return null;
         };
 
-        // Create inline autofill icon for a field (only if matching credentials exist)
+        // Create inline autofill icon for a field (always show icon)
         const createInlineIcon = async (element: HTMLInputElement) => {
             // Check if icon already exists
             if (fieldIconMap.has(element)) {
                 return;
             }
 
-            // Check if there are any matching credentials for this page
-            // Uses CHECK_MATCHING_COUNT which works even when vault is locked
-            try {
-                const response = await chrome.runtime.sendMessage({
-                    type: MESSAGE_TYPES.CHECK_MATCHING_COUNT,
-                    domain: window.location.hostname,
-                });
+            // Create icon with click handler (always show, regardless of matches)
+            const icon = new InlineAutofillIcon(element, async () => {
+                await showSmartMenu(element);
+            });
 
-                // Only create icon if we have matching entries
-                if (!response || !response.hasMatches) {
-                    return; // No matching credentials, don't show icon
-                }
+            // Store reference
+            fieldIconMap.set(element, icon);
 
-                // Create icon with click handler
-                const icon = new InlineAutofillIcon(element, async () => {
-                    await showCredentialMenu(element);
-                });
-
-                // Store reference
-                fieldIconMap.set(element, icon);
-
-                // Show icon
-                icon.show();
-            } catch (error) {
-                console.error('Failed to check for matching credentials:', error);
-                // On error, don't show the icon to be safe
-            }
+            // Show icon immediately
+            icon.show();
         };
 
-        // Show credential selection menu
-        const showCredentialMenu = async (element: HTMLInputElement) => {
+        // Show smart menu based on vault state and available credentials
+        const showSmartMenu = async (element: HTMLInputElement) => {
             try {
                 // Close existing menu
                 if (currentMenu) {
@@ -132,23 +115,29 @@ export default defineContentScript({
                 });
 
                 if (!statusResponse.isUnlocked) {
-                    // Vault is locked, show notification
-                    showNotification('请先解锁密码库后使用自动填充', 'warning');
+                    // Vault is locked, show unlock prompt menu
+                    showUnlockPromptMenu(element);
                     return;
                 }
 
-                // Request credentials from background
+                // Vault is unlocked, get matching credentials
                 const response = await chrome.runtime.sendMessage({
                     type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
                     domain: window.location.hostname,
                 });
 
                 if (!response || !response.entries) {
-                    showNotification('无法获取凭据');
+                    showNotification('无法获取凭据', 'error');
                     return;
                 }
 
-                // Create and show menu
+                if (response.entries.length === 0) {
+                    // No matching credentials, show create new prompt
+                    showCreateNewPromptMenu(element);
+                    return;
+                }
+
+                // Has matching credentials, show credential selection menu
                 currentMenu = new CredentialMenu(
                     response.entries,
                     element,
@@ -159,9 +148,248 @@ export default defineContentScript({
 
                 currentMenu.show();
             } catch (error) {
-                console.error('Failed to show credential menu:', error);
-                showNotification('获取凭据失败');
+                console.error('Failed to show smart menu:', error);
+                showNotification('获取凭据失败', 'error');
             }
+        };
+
+        // Show unlock prompt menu
+        const showUnlockPromptMenu = (element: HTMLInputElement) => {
+            const menu = document.createElement('div');
+            menu.className = 'securefox-unlock-menu';
+            menu.setAttribute('data-securefox-menu', 'true');
+            menu.style.cssText = `
+                position: fixed;
+                background: white;
+                border: 1px solid #e5e5e5;
+                border-radius: 12px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+                min-width: 280px;
+                max-width: 320px;
+                z-index: 999999;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                opacity: 0;
+                transform: translateY(-8px);
+                transition: opacity 0.2s ease, transform 0.2s ease;
+            `;
+
+            menu.innerHTML = `
+                <div style="padding: 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2C9.243 2 7 4.243 7 7V10H6C4.895 10 4 10.895 4 12V20C4 21.105 4.895 22 6 22H18C19.105 22 20 21.105 20 20V12C20 10.895 19.105 10 18 10H17V7C17 4.243 14.757 2 12 2Z" fill="white"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; color: #1e293b; font-size: 15px;">密码库已锁定</div>
+                            <div style="color: #64748b; font-size: 12px;">点击解锁以使用自动填充</div>
+                        </div>
+                    </div>
+                    <button id="sf-unlock-btn" style="
+                        width: 100%;
+                        padding: 10px;
+                        border: none;
+                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                        color: white;
+                        font-size: 14px;
+                        font-weight: 600;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+                    ">
+                        解锁密码库
+                    </button>
+                </div>
+            `;
+
+            document.body.appendChild(menu);
+
+            // Position menu
+            const rect = element.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            let top = rect.bottom + 4;
+            if (top + 200 > viewportHeight - 16) {
+                top = rect.top - 200;
+            }
+            menu.style.top = `${top}px`;
+            menu.style.left = `${Math.max(16, Math.min(rect.left, window.innerWidth - 320 - 16))}px`;
+
+            // Show animation
+            requestAnimationFrame(() => {
+                menu.style.opacity = '1';
+                menu.style.transform = 'translateY(0)';
+            });
+
+            // Add hover effect for button
+            const unlockBtn = menu.querySelector('#sf-unlock-btn') as HTMLButtonElement;
+            if (unlockBtn) {
+                unlockBtn.addEventListener('mouseenter', () => {
+                    unlockBtn.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
+                    unlockBtn.style.transform = 'translateY(-1px)';
+                });
+                unlockBtn.addEventListener('mouseleave', () => {
+                    unlockBtn.style.boxShadow = '0 2px 4px rgba(59, 130, 246, 0.2)';
+                    unlockBtn.style.transform = 'translateY(0)';
+                });
+            }
+
+            // Handle unlock button
+            unlockBtn?.addEventListener('click', () => {
+                // Open extension popup
+                chrome.runtime.sendMessage({type: 'OPEN_POPUP'});
+                menu.style.opacity = '0';
+                menu.style.transform = 'translateY(-8px)';
+                setTimeout(() => menu.remove(), 200);
+            });
+
+            // Close on outside click
+            const closeHandler = (e: MouseEvent) => {
+                if (!menu.contains(e.target as Node) && !element.contains(e.target as Node)) {
+                    menu.style.opacity = '0';
+                    menu.style.transform = 'translateY(-8px)';
+                    setTimeout(() => {
+                        menu.remove();
+                        document.removeEventListener('click', closeHandler);
+                    }, 200);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeHandler), 0);
+
+            // Store reference
+            (menu as any)._closeHandler = closeHandler;
+            currentMenu = { destroy: () => {
+                menu.remove();
+                document.removeEventListener('click', closeHandler);
+            }} as any;
+        };
+
+        // Show create new credential prompt menu
+        const showCreateNewPromptMenu = (element: HTMLInputElement) => {
+            const menu = document.createElement('div');
+            menu.className = 'securefox-create-menu';
+            menu.setAttribute('data-securefox-menu', 'true');
+            menu.style.cssText = `
+                position: fixed;
+                background: white;
+                border: 1px solid #e5e5e5;
+                border-radius: 12px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+                min-width: 280px;
+                max-width: 320px;
+                z-index: 999999;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                opacity: 0;
+                transform: translateY(-8px);
+                transition: opacity 0.2s ease, transform 0.2s ease;
+            `;
+
+            const hostname = window.location.hostname;
+
+            menu.innerHTML = `
+                <div style="padding: 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 5v14M5 12h14" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; color: #1e293b; font-size: 15px;">无保存的凭据</div>
+                            <div style="color: #64748b; font-size: 12px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${hostname}</div>
+                        </div>
+                    </div>
+                    <button id="sf-create-btn" style="
+                        width: 100%;
+                        padding: 10px;
+                        border: none;
+                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                        color: white;
+                        font-size: 14px;
+                        font-weight: 600;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+                    ">
+                        + 创建新登录
+                    </button>
+                </div>
+            `;
+
+            document.body.appendChild(menu);
+
+            // Position menu
+            const rect = element.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            let top = rect.bottom + 4;
+            if (top + 200 > viewportHeight - 16) {
+                top = rect.top - 200;
+            }
+            menu.style.top = `${top}px`;
+            menu.style.left = `${Math.max(16, Math.min(rect.left, window.innerWidth - 320 - 16))}px`;
+
+            // Show animation
+            requestAnimationFrame(() => {
+                menu.style.opacity = '1';
+                menu.style.transform = 'translateY(0)';
+            });
+
+            // Add hover effect for button
+            const createBtn = menu.querySelector('#sf-create-btn') as HTMLButtonElement;
+            if (createBtn) {
+                createBtn.addEventListener('mouseenter', () => {
+                    createBtn.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
+                    createBtn.style.transform = 'translateY(-1px)';
+                });
+                createBtn.addEventListener('mouseleave', () => {
+                    createBtn.style.boxShadow = '0 2px 4px rgba(59, 130, 246, 0.2)';
+                    createBtn.style.transform = 'translateY(0)';
+                });
+            }
+
+            // Handle create button
+            createBtn?.addEventListener('click', () => {
+                // Store the hostname and URL for pre-filling the add item form
+                chrome.storage.local.set({
+                    'pendingAction': 'openAddModal',
+                    'pendingAddItem': {
+                        name: hostname,
+                        uri: window.location.href
+                    }
+                });
+                // Try to open popup
+                chrome.runtime.sendMessage({type: 'OPEN_POPUP', action: 'add'});
+                menu.style.opacity = '0';
+                menu.style.transform = 'translateY(-8px)';
+                setTimeout(() => menu.remove(), 200);
+            });
+
+            // Close on outside click
+            const closeHandler = (e: MouseEvent) => {
+                if (!menu.contains(e.target as Node) && !element.contains(e.target as Node)) {
+                    menu.style.opacity = '0';
+                    menu.style.transform = 'translateY(-8px)';
+                    setTimeout(() => {
+                        menu.remove();
+                        document.removeEventListener('click', closeHandler);
+                    }, 200);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeHandler), 0);
+
+            // Store reference
+            (menu as any)._closeHandler = closeHandler;
+            currentMenu = { destroy: () => {
+                menu.remove();
+                document.removeEventListener('click', closeHandler);
+            }} as any;
+        };
+
+        // Show credential selection menu (legacy, kept for compatibility)
+        const showCredentialMenu = async (element: HTMLInputElement) => {
+            await showSmartMenu(element);
         };
 
         // Fill credentials with enhanced animation
