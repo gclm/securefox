@@ -1,6 +1,9 @@
 import {MESSAGE_TYPES} from '@/utils/constants';
 import {InlineAutofillIcon} from './content/InlineAutofillIcon';
 import {CredentialMenu} from './content/CredentialMenu';
+import {CardMenu} from './content/CardMenu';
+import {IdentityMenu} from './content/IdentityMenu';
+import {ItemType} from '@/types';
 
 export default defineContentScript({
     matches: ['<all_urls>'],
@@ -11,6 +14,8 @@ export default defineContentScript({
         // Track current focused element and menu state
         let currentFocusedElement: HTMLInputElement | null = null;
         let currentMenu: CredentialMenu | null = null;
+        let currentCardMenu: CardMenu | null = null;
+        let currentIdentityMenu: IdentityMenu | null = null;
         const fieldIconMap = new WeakMap<HTMLInputElement, InlineAutofillIcon>();
 
         // Detect login form fields (only username fields for icon display)
@@ -33,6 +38,177 @@ export default defineContentScript({
                 if (usernameField && !usernameField.hasAttribute('data-securefox-processed')) {
                     fields.push(usernameField);
                 }
+            });
+
+            return fields;
+        };
+
+        // Detect credit card fields
+        const detectCardFields = (): Array<{field: HTMLInputElement; type: 'number' | 'cvv' | 'exp'}> => {
+            const fields: Array<{field: HTMLInputElement; type: 'number' | 'cvv' | 'exp'}> = [];
+
+            // Credit card number field patterns
+            const cardNumberSelectors = [
+                'input[type="text"][name*="card" i][name*="number" i]',
+                'input[type="text"][name*="cc" i][name*="number" i]',
+                'input[type="text"][name*="credit" i][name*="number" i]',
+                'input[type="text"][autocomplete="cc-number"]',
+                'input[type="text"][placeholder*="card" i][placeholder*="number" i]',
+            ];
+
+            // CVV/CVC field patterns (include password type)
+            const cvvSelectors = [
+                'input[type="text"][name*="cvv" i]',
+                'input[type="text"][name*="cvc" i]',
+                'input[type="text"][name*="security" i][name*="code" i]',
+                'input[type="password"][name*="cvv" i]',
+                'input[type="password"][name*="cvc" i]',
+                'input[type="text"][autocomplete="cc-csc"]',
+                'input[type="password"][autocomplete="cc-csc"]',
+            ];
+
+            // Expiration field patterns
+            const expSelectors = [
+                'input[type="text"][name*="exp" i]',
+                'input[type="text"][name*="expiry" i]',
+                'input[type="month"][name*="exp" i]',
+                'input[type="text"][placeholder*="exp" i]',
+                'input[type="text"][autocomplete="cc-exp"]',
+            ];
+
+            // Detect CVV fields first and mark them to prevent login field detection
+            // This is important because CVV fields are often type="password"
+            cvvSelectors.forEach(selector => {
+                const element = document.querySelector<HTMLInputElement>(selector);
+                if (element && !element.disabled && !element.hasAttribute('data-securefox-processed')) {
+                    // Mark CVV fields as processed to prevent login detection
+                    element.setAttribute('data-securefox-processed', 'true');
+                    fields.push({field: element, type: 'cvv'});
+                }
+            });
+
+            // Detect card number fields
+            cardNumberSelectors.forEach(selector => {
+                const field = document.querySelector<HTMLInputElement>(selector);
+                if (field && !field.disabled && !field.hasAttribute('data-securefox-processed')) {
+                    fields.push({field, type: 'number'});
+                    field.setAttribute('data-securefox-processed', 'true');
+                }
+            });
+
+            // Detect expiration fields
+            expSelectors.forEach(selector => {
+                const field = document.querySelector<HTMLInputElement>(selector);
+                if (field && !field.disabled && !field.hasAttribute('data-securefox-processed')) {
+                    fields.push({field, type: 'exp'});
+                    field.setAttribute('data-securefox-processed', 'true');
+                }
+            });
+
+            return fields;
+        };
+
+        // Detect identity fields
+        const detectIdentityFields = (): Array<{field: HTMLInputElement; fieldType: string}> => {
+            const fields: Array<{field: HTMLInputElement; fieldType: string}> = [];
+
+            // Name field patterns
+            const nameSelectors = [
+                'input[type="text"][name*="first" i][name*="name" i]',
+                'input[type="text"][name*="last" i][name*="name" i]',
+                'input[type="text"][name*="full" i][name*="name" i]',
+                'input[type="text"][autocomplete="given-name"]',
+                'input[type="text"][autocomplete="family-name"]',
+                'input[type="text"][autocomplete="name"]',
+            ];
+
+            // Email field patterns (that are not for login)
+            const emailSelectors = [
+                'input[type="email"][autocomplete="email"]',
+                'input[type="text"][name*="email" i]',
+            ];
+
+            // Phone field patterns
+            const phoneSelectors = [
+                'input[type="tel"][autocomplete="tel"]',
+                'input[type="tel"][name*="phone" i]',
+                'input[type="tel"][name*="mobile" i]',
+            ];
+
+            // Address field patterns
+            const addressSelectors = [
+                'input[type="text"][autocomplete="street-address"]',
+                'input[type="text"][autocomplete="address-line1"]',
+                'input[type="text"][name*="address" i]',
+                'input[type="text"][name*="street" i]',
+            ];
+
+            // City field patterns
+            const citySelectors = [
+                'input[type="text"][autocomplete="city"]',
+                'input[type="text"][autocomplete="address-level2"]',
+                'input[type="text"][name*="city" i]',
+            ];
+
+            // State/Province field patterns
+            const stateSelectors = [
+                'input[type="text"][autocomplete="state"]',
+                'input[type="text"][autocomplete="address-level1"]',
+                'input[type="text"][name*="state" i]',
+                'input[type="text"][name*="province" i]',
+            ];
+
+            // Postal code field patterns
+            const postalSelectors = [
+                'input[type="text"][autocomplete="postal-code"]',
+                'input[type="text"][name*="zip" i]',
+                'input[type="text"][name*="postal" i]',
+            ];
+
+            // Country field patterns
+            const countrySelectors = [
+                'input[type="text"][autocomplete="country"]',
+                'input[type="text"][autocomplete="country-name"]',
+                'input[type="text"][name*="country" i]',
+            ];
+
+            // Company field patterns
+            const companySelectors = [
+                'input[type="text"][autocomplete="organization"]',
+                'input[type="text"][autocomplete="organization-title"]',
+                'input[type="text"][name*="company" i]',
+            ];
+
+            // Detect all identity field types
+            const fieldTypes: Array<{selectors: string[], type: string}> = [
+                {selectors: nameSelectors, type: 'name'},
+                {selectors: emailSelectors, type: 'email'},
+                {selectors: phoneSelectors, type: 'phone'},
+                {selectors: addressSelectors, type: 'address'},
+                {selectors: citySelectors, type: 'city'},
+                {selectors: stateSelectors, type: 'state'},
+                {selectors: postalSelectors, type: 'postalCode'},
+                {selectors: countrySelectors, type: 'country'},
+                {selectors: companySelectors, type: 'company'},
+            ];
+
+            // Check each field type
+            fieldTypes.forEach(({selectors, type}) => {
+                selectors.forEach(selector => {
+                    const element = document.querySelector<HTMLInputElement>(selector);
+                    if (element && !element.disabled && !element.hasAttribute('data-securefox-processed')) {
+                        // Skip if this is a login field (password or username field in a login form)
+                        const isLoginField = element.type === 'password' ||
+                                          element.hasAttribute('autocomplete') &&
+                                          (element.getAttribute('autocomplete') === 'username' ||
+                                           element.getAttribute('autocomplete') === 'current-password');
+
+                        if (!isLoginField) {
+                            fields.push({field: element, fieldType: type});
+                            element.setAttribute('data-securefox-processed', 'true');
+                        }
+                    }
+                });
             });
 
             return fields;
@@ -98,6 +274,445 @@ export default defineContentScript({
 
             // Show icon immediately
             icon.show();
+        };
+
+        // Helper function to fill field with animation
+        const fillField = (field: HTMLInputElement, value: string) => {
+            field.style.transition = 'background-color 0.3s ease';
+            field.style.backgroundColor = '#dbeafe';
+
+            field.value = value;
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+
+            setTimeout(() => {
+                field.style.backgroundColor = '';
+                setTimeout(() => {
+                    field.style.transition = '';
+                }, 300);
+            }, 300);
+        };
+
+        // Create inline autofill icon for credit card fields (purple variant)
+        const createCardIcon = async (element: HTMLInputElement, fieldType: 'number' | 'cvv' | 'exp') => {
+            // Check if icon already exists
+            if (fieldIconMap.has(element)) {
+                return;
+            }
+
+            // Create icon with purple color for cards
+            const icon = new InlineAutofillIcon(element, async () => {
+                await showCardMenu(element, fieldType);
+            }, '#8b5cf6'); // Purple color for cards
+
+            // Store reference
+            fieldIconMap.set(element, icon);
+
+            // Show icon immediately
+            icon.show();
+        };
+
+        // Show card menu with matching credit cards
+        const showCardMenu = async (element: HTMLInputElement, fieldType: 'number' | 'cvv' | 'exp') => {
+            try {
+                // Close existing card menu
+                if (currentCardMenu) {
+                    currentCardMenu.destroy();
+                    currentCardMenu = null;
+                }
+
+                // Check if vault is unlocked
+                const statusResponse = await chrome.runtime.sendMessage({
+                    type: MESSAGE_TYPES.GET_STATUS,
+                });
+
+                if (!statusResponse.isUnlocked) {
+                    showNotification('请先解锁密码库以使用信用卡填充', 'warning');
+                    return;
+                }
+
+                // Get all entries and filter for cards
+                const allEntriesResponse = await chrome.runtime.sendMessage({
+                    type: MESSAGE_TYPES.GET_ALL_ENTRIES,
+                });
+
+                if (!allEntriesResponse || !allEntriesResponse.entries) {
+                    showNotification('无法获取信用卡信息', 'error');
+                    return;
+                }
+
+                // Filter for card entries
+                const cards = allEntriesResponse.entries.filter(entry => entry.type === ItemType.Card && entry.card);
+
+                if (cards.length === 0) {
+                    showNotification('密码库中没有保存的信用卡', 'info');
+                    return;
+                }
+
+                // Show card menu
+                currentCardMenu = new CardMenu(
+                    cards,
+                    element,
+                    fieldType,
+                    (card, field) => {
+                        fillCardField(card, field, element);
+                    }
+                );
+
+                currentCardMenu.show();
+            } catch (error) {
+                console.error('Failed to show card menu:', error);
+                showNotification('获取信用卡失败', 'error');
+            }
+        };
+
+        // Fill card field with selected card data
+        const fillCardField = async (card: any, fieldType: 'number' | 'cvv' | 'exp', targetElement: HTMLInputElement) => {
+            // Check HTTP warning before filling
+            const shouldContinue = await showHttpWarningDialog();
+            if (!shouldContinue) {
+                showNotification('已取消填充', 'info');
+                return;
+            }
+            try {
+                const cardData = card.card;
+
+                switch (fieldType) {
+                    case 'number':
+                        if (cardData.number) {
+                            fillField(targetElement, cardData.number);
+                            showNotification(`已填充 ${card.name} 的卡号`, 'success');
+                        }
+                        break;
+
+                    case 'cvv':
+                        if (cardData.code) {
+                            fillField(targetElement, cardData.code);
+                            showNotification(`已填充 ${card.name} 的安全码`, 'success');
+                        }
+                        break;
+
+                    case 'exp':
+                        // Format expiration as MM/YY
+                        if (cardData.expMonth && cardData.expYear) {
+                            const expMonth = cardData.expMonth.padStart(2, '0');
+                            const expYear = cardData.expYear.slice(-2); // Last 2 digits
+                            const expValue = `${expMonth}/${expYear}`;
+                            fillField(targetElement, expValue);
+                            showNotification(`已填充 ${card.name} 的有效期`, 'success');
+                        }
+                        break;
+                }
+            } catch (error) {
+                console.error('Failed to fill card field:', error);
+                showNotification('填充失败', 'error');
+            }
+        };
+
+        // Create inline autofill icon for identity fields (green variant)
+        const createIdentityIcon = async (element: HTMLInputElement, fieldType: string) => {
+            // Check if icon already exists
+            if (fieldIconMap.has(element)) {
+                return;
+            }
+
+            // Create icon with green color for identity
+            const icon = new InlineAutofillIcon(element, async () => {
+                await showIdentityMenu(element, fieldType);
+            }, '#10b981'); // Green color for identity
+
+            // Store reference
+            fieldIconMap.set(element, icon);
+
+            // Show icon immediately
+            icon.show();
+        };
+
+        // Show identity menu with matching identity information
+        const showIdentityMenu = async (element: HTMLInputElement, fieldType: string) => {
+            try {
+                // Close existing identity menu
+                if (currentIdentityMenu) {
+                    currentIdentityMenu.destroy();
+                    currentIdentityMenu = null;
+                }
+
+                // Check if vault is unlocked
+                const statusResponse = await chrome.runtime.sendMessage({
+                    type: MESSAGE_TYPES.GET_STATUS,
+                });
+
+                if (!statusResponse.isUnlocked) {
+                    showNotification('请先解锁密码库以使用身份信息填充', 'warning');
+                    return;
+                }
+
+                // Get all entries and filter for identities
+                const allEntriesResponse = await chrome.runtime.sendMessage({
+                    type: MESSAGE_TYPES.GET_ALL_ENTRIES,
+                });
+
+                if (!allEntriesResponse || !allEntriesResponse.entries) {
+                    showNotification('无法获取身份信息', 'error');
+                    return;
+                }
+
+                // Filter for identity entries
+                const identities = allEntriesResponse.entries.filter(entry => entry.type === ItemType.Identity && entry.identity);
+
+                if (identities.length === 0) {
+                    showNotification('密码库中没有保存的身份信息', 'info');
+                    return;
+                }
+
+                // Show identity menu
+                currentIdentityMenu = new IdentityMenu(
+                    identities,
+                    element,
+                    fieldType,
+                    (identity, ft) => {
+                        fillIdentityField(identity, ft, element);
+                    }
+                );
+
+                currentIdentityMenu.show();
+            } catch (error) {
+                console.error('Failed to show identity menu:', error);
+                showNotification('获取身份信息失败', 'error');
+            }
+        };
+
+        // Fill identity field with selected identity data
+        const fillIdentityField = async (identity: any, fieldType: string, targetElement: HTMLInputElement) => {
+            // Check HTTP warning before filling
+            const shouldContinue = await showHttpWarningDialog();
+            if (!shouldContinue) {
+                showNotification('已取消填充', 'info');
+                return;
+            }
+            try {
+                const identityData = identity.identity;
+
+                switch (fieldType) {
+                    case 'name':
+                        // Try to fill with full name
+                        const fullName = [identityData.firstName, identityData.middleName, identityData.lastName]
+                            .filter(Boolean)
+                            .join(' ');
+                        if (fullName) {
+                            fillField(targetElement, fullName);
+                            showNotification(`已填充 ${identity.name} 的姓名`, 'success');
+                        }
+                        break;
+
+                    case 'email':
+                        if (identityData.email) {
+                            fillField(targetElement, identityData.email);
+                            showNotification(`已填充 ${identity.name} 的邮箱`, 'success');
+                        }
+                        break;
+
+                    case 'phone':
+                        if (identityData.phone) {
+                            fillField(targetElement, identityData.phone);
+                            showNotification(`已填充 ${identity.name} 的电话`, 'success');
+                        }
+                        break;
+
+                    case 'address':
+                        // Fill with address line 1
+                        if (identityData.address1) {
+                            fillField(targetElement, identityData.address1);
+                            showNotification(`已填充 ${identity.name} 的地址`, 'success');
+                        }
+                        break;
+
+                    case 'city':
+                        if (identityData.city) {
+                            fillField(targetElement, identityData.city);
+                            showNotification(`已填充 ${identity.name} 的城市`, 'success');
+                        }
+                        break;
+
+                    case 'state':
+                        if (identityData.state) {
+                            fillField(targetElement, identityData.state);
+                            showNotification(`已填充 ${identity.name} 的省/州`, 'success');
+                        }
+                        break;
+
+                    case 'postalCode':
+                        if (identityData.postalCode) {
+                            fillField(targetElement, identityData.postalCode);
+                            showNotification(`已填充 ${identity.name} 的邮编`, 'success');
+                        }
+                        break;
+
+                    case 'country':
+                        if (identityData.country) {
+                            fillField(targetElement, identityData.country);
+                            showNotification(`已填充 ${identity.name} 的国家`, 'success');
+                        }
+                        break;
+
+                    case 'company':
+                        if (identityData.company) {
+                            fillField(targetElement, identityData.company);
+                            showNotification(`已填充 ${identity.name} 的公司`, 'success');
+                        }
+                        break;
+                }
+            } catch (error) {
+                console.error('Failed to fill identity field:', error);
+                showNotification('填充失败', 'error');
+            }
+        };
+
+        // Show HTTP warning confirmation dialog
+        const showHttpWarningDialog = async (): Promise<boolean> => {
+            return new Promise((resolve) => {
+                // Check if using HTTP
+                if (window.location.protocol !== 'http:') {
+                    resolve(true); // Not HTTP, allow immediately
+                    return;
+                }
+
+                // Create warning dialog
+                const dialog = document.createElement('div');
+                dialog.className = 'securefox-http-warning-dialog';
+                dialog.setAttribute('data-securefox-menu', 'true');
+                dialog.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    border: 2px solid #f59e0b;
+                    border-radius: 16px;
+                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+                    min-width: 400px;
+                    max-width: 480px;
+                    z-index: 999999;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    opacity: 0;
+                    transform: translate(-50%, -50%) scale(0.95);
+                    transition: all 0.2s ease;
+                `;
+
+                dialog.innerHTML = `
+                    <div style="padding: 24px;">
+                        <div style="display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px;">
+                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 9V13M12 17H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 700; color: #1e293b; font-size: 18px; margin-bottom: 8px;">⚠️ 安全警告</div>
+                                <div style="color: #64748b; font-size: 14px; line-height: 1.6;">
+                                    当前使用 <strong>HTTP 连接（不加密）</strong>，您的凭据可能被窃听。
+                                    <br><br>
+                                    是否继续填充？
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button id="sf-cancel-btn" style="
+                                flex: 1;
+                                padding: 12px;
+                                border: 2px solid #e2e8f0;
+                                background: white;
+                                color: #64748b;
+                                font-size: 14px;
+                                font-weight: 600;
+                                border-radius: 10px;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            ">
+                                取消
+                            </button>
+                            <button id="sf-continue-btn" style="
+                                flex: 1;
+                                padding: 12px;
+                                border: none;
+                                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                                color: white;
+                                font-size: 14px;
+                                font-weight: 600;
+                                border-radius: 10px;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+                            ">
+                                继续填充
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(dialog);
+
+                // Show animation
+                requestAnimationFrame(() => {
+                    dialog.style.opacity = '1';
+                    dialog.style.transform = 'translate(-50%, -50%) scale(1)';
+                });
+
+                // Button hover effects
+                const continueBtn = dialog.querySelector('#sf-continue-btn') as HTMLButtonElement;
+                const cancelBtn = dialog.querySelector('#sf-cancel-btn') as HTMLButtonElement;
+
+                continueBtn.addEventListener('mouseenter', () => {
+                    continueBtn.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)';
+                    continueBtn.style.transform = 'translateY(-1px)';
+                });
+                continueBtn.addEventListener('mouseleave', () => {
+                    continueBtn.style.boxShadow = '0 2px 8px rgba(245, 158, 11, 0.3)';
+                    continueBtn.style.transform = 'translateY(0)';
+                });
+
+                cancelBtn.addEventListener('mouseenter', () => {
+                    cancelBtn.style.background = '#f8fafc';
+                });
+                cancelBtn.addEventListener('mouseleave', () => {
+                    cancelBtn.style.background = 'white';
+                });
+
+                // Handle continue
+                continueBtn.addEventListener('click', () => {
+                    dialog.style.opacity = '0';
+                    dialog.style.transform = 'translate(-50%, -50%) scale(0.95)';
+                    setTimeout(() => {
+                        if (dialog.parentNode) {
+                            dialog.parentNode.removeChild(dialog);
+                        }
+                    }, 200);
+                    resolve(true);
+                });
+
+                // Handle cancel
+                cancelBtn.addEventListener('click', () => {
+                    dialog.style.opacity = '0';
+                    dialog.style.transform = 'translate(-50%, -50%) scale(0.95)';
+                    setTimeout(() => {
+                        if (dialog.parentNode) {
+                            dialog.parentNode.removeChild(dialog);
+                        }
+                    }, 200);
+                    resolve(false);
+                });
+
+                // Close on outside click
+                const closeOnClickOutside = (e: MouseEvent) => {
+                    if (!dialog.contains(e.target as HTMLElement)) {
+                        cancelBtn.click();
+                        document.removeEventListener('click', closeOnClickOutside);
+                    }
+                };
+                setTimeout(() => {
+                    document.addEventListener('click', closeOnClickOutside);
+                }, 100);
+            });
         };
 
         // Show smart menu based on vault state and available credentials
@@ -393,7 +1008,14 @@ export default defineContentScript({
         };
 
         // Fill credentials with enhanced animation
-        const fillCredentials = (entry: any) => {
+        const fillCredentials = async (entry: any) => {
+            // Check HTTP warning before filling
+            const shouldContinue = await showHttpWarningDialog();
+            if (!shouldContinue) {
+                showNotification('已取消填充', 'info');
+                return;
+            }
+
             const passwordField = document.querySelector<HTMLInputElement>('input[type="password"]:not([disabled])');
 
             if (!passwordField) {
@@ -892,23 +1514,6 @@ export default defineContentScript({
             }
         };
 
-        // Helper function to fill field with animation
-        const fillField = (field: HTMLInputElement, value: string) => {
-            field.style.transition = 'background-color 0.3s ease';
-            field.style.backgroundColor = '#dbeafe';
-
-            field.value = value;
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-            field.dispatchEvent(new Event('change', { bubbles: true }));
-
-            setTimeout(() => {
-                field.style.backgroundColor = '';
-                setTimeout(() => {
-                    field.style.transition = '';
-                }, 300);
-            }, 300);
-        };
-
         // Add event listeners to document
         document.addEventListener('dragover', handleDragOver);
         document.addEventListener('drop', handleDrop);
@@ -1061,16 +1666,29 @@ export default defineContentScript({
 
         // Initialize inline autofill system
         const initialize = async () => {
+            // Run security checks first
+            checkSecurityWarnings();
+
+            // Detect and process credit card fields FIRST (before login fields)
+            // This is important because CVV fields are type="password" and could be misidentified as login password fields
+            const cardFields = detectCardFields();
+            for (const {field, type} of cardFields) {
+                await createCardIcon(field, type);
+            }
+
             // Detect and process login fields
             const loginFields = detectLoginFields();
 
             // Process fields asynchronously to check for matching credentials
             for (const field of loginFields) {
-                // Mark as processed
-                field.setAttribute('data-securefox-processed', 'true');
-
                 // Create inline icon (only if credentials match)
                 await createInlineIcon(field);
+            }
+
+            // Detect and process identity fields
+            const identityFields = detectIdentityFields();
+            for (const {field, fieldType} of identityFields) {
+                await createIdentityIcon(field, fieldType);
             }
 
             // Add event listeners
@@ -1090,18 +1708,62 @@ export default defineContentScript({
             updateBadge();
         };
 
-        // Watch for new login fields (SPA support)
-        const observer = new MutationObserver(async () => {
-            const newFields = detectLoginFields();
+        // Security warnings system
+        let securityWarningsShown = false;
+        const checkSecurityWarnings = () => {
+            if (securityWarningsShown) return;
 
-            // Process fields asynchronously
-            for (const field of newFields) {
+            const warnings: string[] = [];
+
+            // Check if in iframe
+            if (window.self !== window.top) {
+                warnings.push('⚠️ 当前页面在 iframe 中，自动填充需谨慎验证来源');
+            }
+
+            // Check for HTTP connection
+            if (window.location.protocol === 'http:') {
+                warnings.push('⚠️ 当前使用 HTTP 连接（不加密），您的凭据可能被窃听');
+            }
+
+            // Show warnings if any
+            if (warnings.length > 0) {
+                // Show warnings after a short delay
+                setTimeout(() => {
+                    warnings.forEach((warning, index) => {
+                        setTimeout(() => {
+                            showNotification(warning, 'warning', 6000);
+                        }, index * 500); // Stagger warnings
+                    });
+                }, 1000);
+
+                securityWarningsShown = true;
+            }
+        };
+
+        // Watch for new fields (SPA support)
+        const observer = new MutationObserver(async () => {
+            // Detect and process new credit card fields FIRST
+            // This prevents CVV (password type) from being misidentified as login fields
+            const newCardFields = detectCardFields();
+            for (const {field, type} of newCardFields) {
+                await createCardIcon(field, type);
+            }
+
+            // Detect and process new login fields
+            const newLoginFields = detectLoginFields();
+            for (const field of newLoginFields) {
                 field.setAttribute('data-securefox-processed', 'true');
                 await createInlineIcon(field);
             }
 
+            // Detect and process new identity fields
+            const newIdentityFields = detectIdentityFields();
+            for (const {field, fieldType} of newIdentityFields) {
+                await createIdentityIcon(field, fieldType);
+            }
+
             // Update badge when new fields appear
-            if (newFields.length > 0) {
+            if (newLoginFields.length > 0) {
                 updateBadge();
             }
         });

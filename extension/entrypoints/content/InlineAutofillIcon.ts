@@ -8,10 +8,12 @@ export class InlineAutofillIcon {
   private inputElement: HTMLInputElement;
   private onClick: () => void;
   private isVisible: boolean = false;
+  private color: string;
 
-  constructor(inputElement: HTMLInputElement, onClick: () => void) {
+  constructor(inputElement: HTMLInputElement, onClick: () => void, color: string = '#3b82f6') {
     this.inputElement = inputElement;
     this.onClick = onClick;
+    this.color = color;
     this.iconButton = this.createIconButton();
   }
 
@@ -48,20 +50,25 @@ export class InlineAutofillIcon {
       pointer-events: none;
     `;
 
+    // 生成渐变色的 lighter 和 darker 变体
+    const lighterColor = this.adjustColor(this.color, 40);
+    const darkerColor = this.adjustColor(this.color, -20);
+    const gradientId = `sf-gradient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
     // SecureFox logo SVG（简化版）
     button.innerHTML = `
       <svg width="20" height="20" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="sf-gradient-${Date.now()}" x1="0%" x2="100%" y1="0%" y2="100%">
-            <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:1"/>
-            <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1"/>
+          <linearGradient id="${gradientId}" x1="0%" x2="100%" y1="0%" y2="100%">
+            <stop offset="0%" style="stop-color:${lighterColor};stop-opacity:1"/>
+            <stop offset="100%" style="stop-color:${this.color};stop-opacity:1"/>
           </linearGradient>
         </defs>
         <g transform="translate(256, 320) scale(1.2)">
-          <path fill="url(#sf-gradient-${Date.now()})" d="M -140 -160 L -100 -220 L -60 -180 Q -80 -140, -100 -130 C -110 -125, -130 -135, -140 -160 Z"/>
-          <path fill="url(#sf-gradient-${Date.now()})" d="M 140 -160 L 100 -220 L 60 -180 Q 80 -140, 100 -130 C 110 -125, 130 -135, 140 -160 Z"/>
-          <ellipse cx="0" cy="-60" fill="url(#sf-gradient-${Date.now()})" rx="150" ry="130"/>
-          <path fill="#2563eb" d="M -100 0 Q -50 60, 0 80 Q 50 60, 100 0 L 100 -40 L -100 -40 Z"/>
+          <path fill="url(#${gradientId})" d="M -140 -160 L -100 -220 L -60 -180 Q -80 -140, -100 -130 C -110 -125, -130 -135, -140 -160 Z"/>
+          <path fill="url(#${gradientId})" d="M 140 -160 L 100 -220 L 60 -180 Q 80 -140, 100 -130 C 110 -125, 130 -135, 140 -160 Z"/>
+          <ellipse cx="0" cy="-60" fill="url(#${gradientId})" rx="150" ry="130"/>
+          <path fill="${darkerColor}" d="M -100 0 Q -50 60, 0 80 Q 50 60, 100 0 L 100 -40 L -100 -40 Z"/>
           <path fill="#1E293B" d="M -150 -60 Q -100 -80, -50 -70 Q 0 -60, 50 -70 Q 100 -80, 150 -60 L 150 -40 Q 100 -30, 50 -35 Q 0 -40, -50 -35 Q -100 -30, -150 -40 Z"/>
           <circle cx="-50" cy="-60" r="15" fill="#FFF"/>
           <circle cx="-50" cy="-60" r="8" fill="#1E293B"/>
@@ -72,9 +79,9 @@ export class InlineAutofillIcon {
       </svg>
     `;
 
-    // 鼠标悬停效果
+    // 鼠标悬停效果（使用自定义颜色的透明版本）
     button.addEventListener('mouseenter', () => {
-      button.style.background = 'rgba(59, 130, 246, 0.1)';
+      button.style.background = this.hexToRgba(this.color, 0.1);
     });
 
     button.addEventListener('mouseleave', () => {
@@ -94,6 +101,36 @@ export class InlineAutofillIcon {
     });
 
     return button;
+  }
+
+  /**
+   * 调整颜色亮度
+   * @param hex - 十六进制颜色（如 #3b82f6）
+   * @param amount - 调整量（正数变亮，负数变暗）
+   * @returns 调整后的十六进制颜色
+   */
+  private adjustColor(hex: string, amount: number): string {
+    const color = hex.replace('#', '');
+    const num = parseInt(color, 16);
+    const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+    const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
+    const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+  }
+
+  /**
+   * 将十六进制颜色转换为 RGBA
+   * @param hex - 十六进制颜色（如 #3b82f6）
+   * @param alpha - 透明度（0-1）
+   * @returns RGBA 颜色字符串
+   */
+  private hexToRgba(hex: string, alpha: number): string {
+    const color = hex.replace('#', '');
+    const num = parseInt(color, 16);
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 0x00FF;
+    const b = num & 0x0000FF;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   /**

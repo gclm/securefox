@@ -201,6 +201,35 @@ export default defineBackground(() => {
                         sendResponse({isUnlocked});
                         break;
 
+                    case MESSAGE_TYPES.GET_ALL_ENTRIES:
+                        // Get all entries without domain filtering (for cards/identity)
+                        try {
+                            const allEntries = await entriesApi.getEntries();
+
+                            // Return with full entry info including type
+                            const formattedEntries = allEntries.map(entry => ({
+                                id: entry.id,
+                                type: entry.type,
+                                name: entry.name,
+                                login: entry.login ? {
+                                    username: entry.login.username || '',
+                                    password: entry.login.password || '',
+                                    totp: entry.login.totp,
+                                    uris: entry.login.uris
+                                } : undefined,
+                                card: entry.card,
+                                identity: entry.identity,
+                                favorite: entry.favorite || false,
+                                revisionDate: entry.revisionDate
+                            }));
+
+                            sendResponse({entries: formattedEntries});
+                        } catch (error) {
+                            console.error('Failed to get all entries:', error);
+                            sendResponse({entries: [], error: 'Failed to fetch entries'});
+                        }
+                        break;
+
                     case MESSAGE_TYPES.CHECK_MATCHING_COUNT:
                         // Check if matching credentials exist (works even when locked)
                         try {
@@ -218,22 +247,25 @@ export default defineBackground(() => {
                         const domain = message.domain || (sender.tab?.url ? new URL(sender.tab.url).hostname : '');
 
                         try {
-                            // Get all login entries
+                            // Get all entries
                             const allEntries = await entriesApi.getEntries();
 
                             // Filter and sort by relevance using frontend matching logic
                             const matchingEntries = findMatchingItems(allEntries, sender.tab?.url || '');
 
-                            // Return with full credential info
+                            // Return with full entry info including type
                             const formattedEntries = matchingEntries.map(entry => ({
                                 id: entry.id,
+                                type: entry.type,
                                 name: entry.name,
-                                login: {
-                                    username: entry.login?.username || '',
-                                    password: entry.login?.password || '',
-                                    totp: entry.login?.totp,
-                                    uris: entry.login?.uris
-                                },
+                                login: entry.login ? {
+                                    username: entry.login.username || '',
+                                    password: entry.login.password || '',
+                                    totp: entry.login.totp,
+                                    uris: entry.login.uris
+                                } : undefined,
+                                card: entry.card,
+                                identity: entry.identity,
                                 favorite: entry.favorite || false,
                                 revisionDate: entry.revisionDate
                             }));
