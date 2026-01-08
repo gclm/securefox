@@ -71,6 +71,11 @@ export const MESSAGE_TYPES = {
     VAULT_LOCKED: 'VAULT_LOCKED',
     VAULT_UNLOCKED: 'VAULT_UNLOCKED',
     SESSION_EXPIRED: 'SESSION_EXPIRED',
+
+    // For HTTP autofill confirmation
+    REQUEST_AUTOFILL_CONFIRMATION: 'REQUEST_AUTOFILL_CONFIRMATION', // From background to content
+    AUTOFILL_CONFIRMED: 'AUTOFILL_CONFIRMED', // From content to background (user confirmed)
+    AUTOFILL_CANCELLED: 'AUTOFILL_CANCELLED', // From content to background (user cancelled)
 } as const;
 
 // Regex Patterns

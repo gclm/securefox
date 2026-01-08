@@ -509,24 +509,17 @@ export default defineBackground(() => {
                 if (matchingEntries.length === 1) {
                     const entry = matchingEntries[0];
 
-                    // Check if this is an HTTP connection (not HTTPS)
-                    const isHttpConnection = tab.url.startsWith('http:') && !tab.url.startsWith('https:');
-
-                    // Send autofill message to content script
+                    // Send auto-fill request with security check
+                    // Content script will check for HTTP and iframe, then show confirmation dialog if needed
                     chrome.tabs.sendMessage(tabId, {
-                        type: MESSAGE_TYPES.FILL_CREDENTIALS,
-                        data: entry,
-                        isHttpConnection: isHttpConnection, // Pass HTTP flag for warning
+                        type: MESSAGE_TYPES.REQUEST_AUTOFILL_CONFIRMATION,
+                        entry: entry,
+                        url: tab.url,
+                        isAutofillOnPageLoad: true // Indicates this is from page load auto-fill
                     }).catch(() => {
-                        // Content script might not be ready yet, that's okay
-                        console.log('Content script not ready for autofill');
+                        // Content script might not be ready yet
+                        console.log('SecureFox: Content script not ready for autofill confirmation');
                     });
-
-                    if (isHttpConnection) {
-                        console.log(`SecureFox: Auto-filled credentials for ${entry.name} on HTTP site`);
-                    } else {
-                        console.log(`SecureFox: Auto-filled credentials for ${entry.name}`);
-                    }
                 }
             } catch (error) {
                 console.error('Failed to handle autofill on page load:', error);

@@ -568,13 +568,27 @@ export default defineContentScript({
             }
         };
 
-        // Show HTTP warning confirmation dialog
+        // Show security warning confirmation dialog (HTTP or iframe)
         const showHttpWarningDialog = async (): Promise<boolean> => {
             return new Promise((resolve) => {
-                // Check if using HTTP
-                if (window.location.protocol !== 'http:') {
-                    resolve(true); // Not HTTP, allow immediately
+                // Check if using HTTP or in iframe
+                const isHttpConnection = window.location.protocol === 'http:';
+                const isIframe = window.self !== window.top;
+
+                // If neither HTTP nor iframe, allow immediately
+                if (!isHttpConnection && !isIframe) {
+                    resolve(true);
                     return;
+                }
+
+                // Determine warning message
+                let warningMessage = '';
+                if (isHttpConnection && isIframe) {
+                    warningMessage = `当前使用 <strong>HTTP 连接（不加密）</strong> 且在 <strong>iframe 中</strong>，您的凭据可能被窃听。`;
+                } else if (isHttpConnection) {
+                    warningMessage = `当前使用 <strong>HTTP 连接（不加密）</strong>，您的凭据可能被窃听。`;
+                } else {
+                    warningMessage = `当前页面在 <strong>iframe 中</strong>，可能存在安全风险。`;
                 }
 
                 // Create warning dialog
@@ -610,7 +624,7 @@ export default defineContentScript({
                             <div style="flex: 1;">
                                 <div style="font-weight: 700; color: #1e293b; font-size: 18px; margin-bottom: 8px;">⚠️ 安全警告</div>
                                 <div style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                                    当前使用 <strong>HTTP 连接（不加密）</strong>，您的凭据可能被窃听。
+                                    ${warningMessage}
                                     <br><br>
                                     是否继续填充？
                                 </div>
@@ -1194,37 +1208,46 @@ export default defineContentScript({
 
         // Listen for messages from background
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-            switch (message.type) {
-                case MESSAGE_TYPES.FILL_CREDENTIALS:
-                    fillCredentials({login: message.data});
+            (async () => {
+                try {
+                    switch (message.type) {
+                        case MESSAGE_TYPES.REQUEST_AUTOFILL_CONFIRMATION:
+                            // Show HTTP warning dialog for page load auto-fill
+                            const shouldContinue = await showHttpWarningDialog();
+                            if (shouldContinue) {
+                                // User confirmed, fill credentials
+                                await fillCredentials({login: message.entry});
+                                sendResponse({success: true, confirmed: true});
+                            } else {
+                                // User cancelled
+                                showNotification('已取消自动填充', 'info');
+                                sendResponse({success: true, confirmed: false});
+                            }
+                            break;
 
-                    // Show HTTP warning if this is an HTTP connection
-                    if (message.isHttpConnection) {
-                        setTimeout(() => {
-                            showNotification(
-                                '⚠️ 当前使用 HTTP 连接，您的凭据可能被窃听',
-                                'warning',
-                                8000 // Show for 8 seconds
-                            );
-                        }, 500); // Show warning after filling
+                        case MESSAGE_TYPES.FILL_CREDENTIALS:
+                            await fillCredentials({login: message.data});
+                            sendResponse({success: true});
+                            break;
+
+                        case 'INSERT_GENERATED_PASSWORD':
+                            if (currentFocusedElement) {
+                                currentFocusedElement.value = message.data.password;
+                                currentFocusedElement.dispatchEvent(new Event('input', {bubbles: true}));
+                                currentFocusedElement.dispatchEvent(new Event('change', {bubbles: true}));
+                                showNotification('密码已生成并插入');
+                            }
+                            sendResponse({success: true});
+                            break;
+
+                        default:
+                            sendResponse({error: 'Unknown message type'});
                     }
+                } catch (error) {
+                    sendResponse({error: error instanceof Error ? error.message : 'An error occurred'});
+                }
+            })();
 
-                    sendResponse({success: true});
-                    break;
-
-                case 'INSERT_GENERATED_PASSWORD':
-                    if (currentFocusedElement) {
-                        currentFocusedElement.value = message.data.password;
-                        currentFocusedElement.dispatchEvent(new Event('input', {bubbles: true}));
-                        currentFocusedElement.dispatchEvent(new Event('change', {bubbles: true}));
-                        showNotification('密码已生成并插入');
-                    }
-                    sendResponse({success: true});
-                    break;
-
-                default:
-                    sendResponse({error: 'Unknown message type'});
-            }
             return true;
         });
 
@@ -1666,9 +1689,6 @@ export default defineContentScript({
 
         // Initialize inline autofill system
         const initialize = async () => {
-            // Run security checks first
-            checkSecurityWarnings();
-
             // Detect and process credit card fields FIRST (before login fields)
             // This is important because CVV fields are type="password" and could be misidentified as login password fields
             const cardFields = detectCardFields();
@@ -1709,36 +1729,7 @@ export default defineContentScript({
         };
 
         // Security warnings system
-        let securityWarningsShown = false;
-        const checkSecurityWarnings = () => {
-            if (securityWarningsShown) return;
-
-            const warnings: string[] = [];
-
-            // Check if in iframe
-            if (window.self !== window.top) {
-                warnings.push('⚠️ 当前页面在 iframe 中，自动填充需谨慎验证来源');
-            }
-
-            // Check for HTTP connection
-            if (window.location.protocol === 'http:') {
-                warnings.push('⚠️ 当前使用 HTTP 连接（不加密），您的凭据可能被窃听');
-            }
-
-            // Show warnings if any
-            if (warnings.length > 0) {
-                // Show warnings after a short delay
-                setTimeout(() => {
-                    warnings.forEach((warning, index) => {
-                        setTimeout(() => {
-                            showNotification(warning, 'warning', 6000);
-                        }, index * 500); // Stagger warnings
-                    });
-                }, 1000);
-
-                securityWarningsShown = true;
-            }
-        };
+        // 已移除页面加载时的通知警告，只保留用户主动填充时的确认对话框
 
         // Watch for new fields (SPA support)
         const observer = new MutationObserver(async () => {
