@@ -4,6 +4,7 @@ import {
     ArrowLeft,
     Bell,
     ChevronRight,
+    Globe,
     HelpCircle,
     Info,
     Link,
@@ -59,7 +60,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
         clickToFill,
         setClickToFill,
         showQuickCopy,
-        setShowQuickCopy
+        setShowQuickCopy,
+        autofillOnPageLoad,
+        setAutofillOnPageLoad
     } = useUIStore();
     const {lock} = useAuthStore();
     const [showAutoLockPicker, setShowAutoLockPicker] = useState(false);
@@ -166,6 +169,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                     value: showQuickCopy,
                     action: async () => {
                         await setShowQuickCopy(!showQuickCopy);
+                    }
+                },
+                {
+                    icon: Globe,
+                    label: '页面加载自动填充',
+                    description: '自动填充匹配的凭据',
+                    type: 'toggle',
+                    value: autofillOnPageLoad,
+                    action: async () => {
+                        await setAutofillOnPageLoad(!autofillOnPageLoad);
                     }
                 }
             ]

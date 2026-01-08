@@ -14,6 +14,7 @@ interface UIState {
     // User preferences
     clickToFill: boolean;
     showQuickCopy: boolean;
+    autofillOnPageLoad: boolean;
 
     // Modal states
     isAddItemModalOpen: boolean;
@@ -33,6 +34,7 @@ interface UIState {
     closeDetailView: () => void;
     setClickToFill: (enabled: boolean) => Promise<void>;
     setShowQuickCopy: (enabled: boolean) => Promise<void>;
+    setAutofillOnPageLoad: (enabled: boolean) => Promise<void>;
 }
 
 const useUIStore = create<UIState>((set) => ({
@@ -46,6 +48,7 @@ const useUIStore = create<UIState>((set) => ({
     // User preferences (defaults)
     clickToFill: false, // Default to false (show detail view on click)
     showQuickCopy: true, // Default to true (show quick copy buttons)
+    autofillOnPageLoad: false, // Default to false (security preference)
 
     // Modal states
     isAddItemModalOpen: false,
@@ -157,6 +160,25 @@ const useUIStore = create<UIState>((set) => ({
             console.error('Failed to save show quick copy setting:', error);
         }
     },
+
+    // Set autofill on page load preference
+    setAutofillOnPageLoad: async (enabled) => {
+        try {
+            set({autofillOnPageLoad: enabled});
+            // Save to chrome.storage.local
+            await chrome.storage.local.set({autofillOnPageLoad: enabled});
+
+            // Notify background script to update autofill behavior
+            chrome.runtime.sendMessage({
+                type: 'UPDATE_AUTOFILL_SETTING',
+                autofillOnPageLoad: enabled,
+            }).catch(() => {
+                // Ignore if no listener
+            });
+        } catch (error) {
+            console.error('Failed to save autofill on page load setting:', error);
+        }
+    },
 }));
 
 // Load auto-lock preference on startup
@@ -165,12 +187,15 @@ getUserSettings().then((settings) => {
 });
 
 // Load user preferences on startup
-chrome.storage.local.get(['clickToFill', 'showQuickCopy']).then((result) => {
+chrome.storage.local.get(['clickToFill', 'showQuickCopy', 'autofillOnPageLoad']).then((result) => {
     if (result.clickToFill !== undefined) {
         useUIStore.setState({clickToFill: result.clickToFill});
     }
     if (result.showQuickCopy !== undefined) {
         useUIStore.setState({showQuickCopy: result.showQuickCopy});
+    }
+    if (result.autofillOnPageLoad !== undefined) {
+        useUIStore.setState({autofillOnPageLoad: result.autofillOnPageLoad});
     }
 });
 

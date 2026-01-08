@@ -488,7 +488,11 @@ export default defineContentScript({
         };
 
         // Show enhanced notification
-        const showNotification = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+        const showNotification = (
+            message: string,
+            type: 'success' | 'error' | 'warning' | 'info' = 'info',
+            duration: number = 3000
+        ) => {
             const notification = document.createElement('div');
 
             // Color schemes for different types
@@ -542,13 +546,13 @@ export default defineContentScript({
 
             document.body.appendChild(notification);
 
-            // Auto remove
+            // Auto remove after custom duration
             setTimeout(() => {
                 notification.style.animation = 'slideOut 0.3s ease';
                 setTimeout(() => {
                     notification.remove();
                 }, 300);
-            }, 3000);
+            }, duration);
         };
 
         // Handle focus events
@@ -571,6 +575,18 @@ export default defineContentScript({
             switch (message.type) {
                 case MESSAGE_TYPES.FILL_CREDENTIALS:
                     fillCredentials({login: message.data});
+
+                    // Show HTTP warning if this is an HTTP connection
+                    if (message.isHttpConnection) {
+                        setTimeout(() => {
+                            showNotification(
+                                '⚠️ 当前使用 HTTP 连接，您的凭据可能被窃听',
+                                'warning',
+                                8000 // Show for 8 seconds
+                            );
+                        }, 500); // Show warning after filling
+                    }
+
                     sendResponse({success: true});
                     break;
 
@@ -605,26 +621,73 @@ export default defineContentScript({
             }
         };
 
-        // Keyboard shortcut handler (Ctrl+Shift+L)
-        const handleKeyboardShortcut = (event: KeyboardEvent) => {
+        // Keyboard shortcut handler (Ctrl+Shift+L) - with cyclic selection
+        let currentFillIndex = -1; // Track current credential index for cycling
+
+        const handleKeyboardShortcut = async (event: KeyboardEvent) => {
             // Ctrl+Shift+L or Cmd+Shift+L (Mac)
             if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'L') {
                 event.preventDefault();
 
-                // If an input field is focused, show menu for it
-                if (currentFocusedElement) {
-                    showCredentialMenu(currentFocusedElement);
-                    return;
-                }
+                try {
+                    // Get matching credentials for current domain
+                    const response = await chrome.runtime.sendMessage({
+                        type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
+                        domain: window.location.hostname,
+                    });
 
-                // Otherwise, find the first login field and show menu
-                const loginFields = detectLoginFields();
-                if (loginFields.length > 0) {
-                    const firstField = loginFields.find(f => f.type === 'password') || loginFields[0];
-                    firstField.focus();
-                    showCredentialMenu(firstField);
-                } else {
-                    showNotification('未在此页面找到登录表单');
+                    if (!response || !response.entries || response.entries.length === 0) {
+                        showNotification('未找到匹配的凭据');
+                        return;
+                    }
+
+                    const matchingEntries = response.entries;
+
+                    // If only one match, fill it directly
+                    if (matchingEntries.length === 1) {
+                        fillCredentials({login: matchingEntries[0]});
+                        showNotification(`已填充：${matchingEntries[0].name}`, 'success');
+                        currentFillIndex = 0;
+                        return;
+                    }
+
+                    // Multiple matches - implement cycling
+                    // Check if Shift is held for reverse cycling
+                    const isReverse = event.shiftKey;
+
+                    if (isReverse) {
+                        // Cycle backward (with Shift key)
+                        currentFillIndex = currentFillIndex <= 0
+                            ? matchingEntries.length - 1
+                            : currentFillIndex - 1;
+                    } else {
+                        // Cycle forward (without Shift key, or with Ctrl+Shift)
+                        currentFillIndex = (currentFillIndex + 1) % matchingEntries.length;
+                    }
+
+                    // Fill the selected credential
+                    const selectedEntry = matchingEntries[currentFillIndex];
+                    fillCredentials({login: selectedEntry});
+
+                    // Show notification with entry name and position
+                    showNotification(
+                        `已填充 (${currentFillIndex + 1}/${matchingEntries.length})：${selectedEntry.name}`,
+                        'success'
+                    );
+
+                    // Focus the first input field if available
+                    if (currentFocusedElement) {
+                        currentFocusedElement.focus();
+                    } else {
+                        const loginFields = detectLoginFields();
+                        if (loginFields.length > 0) {
+                            const firstField = loginFields.find(f => f.type === 'password') || loginFields[0];
+                            firstField.focus();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to handle keyboard shortcut:', error);
+                    showNotification('获取凭据失败', 'error');
                 }
             }
         };
@@ -724,26 +787,26 @@ export default defineContentScript({
       // Check if vault is unlocked before showing prompt
       try {
         const response = await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.GET_STATUS });
-        
+
         if (!response.isUnlocked) {
           // Vault is locked, show notification to unlock first
           showNotification('请先解锁密码库以保存密码', 'info');
           return;
         }
-        
+
         // Check if entry already exists for this domain and username
         const existingResponse = await chrome.runtime.sendMessage({
           type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
           domain: window.location.hostname,
         });
-        
+
         let isUpdate = false;
         if (existingResponse && existingResponse.entries && existingResponse.entries.length > 0) {
           // Check if any entry matches the username
-          const matchingEntry = existingResponse.entries.find((entry: any) => 
+          const matchingEntry = existingResponse.entries.find((entry: any) =>
             entry.login?.username === credentials.username
           );
-          
+
           if (matchingEntry) {
             // Check if password is different
             if (matchingEntry.login?.password !== credentials.password) {
@@ -756,7 +819,7 @@ export default defineContentScript({
             }
           }
         }
-        
+
         // Show save or update prompt
         showSavePrompt(credentials, isUpdate);
       } catch (error) {
@@ -764,6 +827,93 @@ export default defineContentScript({
         // If unable to check status, still show the prompt
         showSavePrompt(credentials, false);
       }
+    };
+
+    // Initialize drag and drop support for credential autofill
+    const initializeDragAndDrop = () => {
+        // Allow drop on all input fields
+        const handleDragOver = (e: DragEvent) => {
+            e.preventDefault();
+            e.dataTransfer!.dropEffect = 'copy';
+        };
+
+        // Handle drop event
+        const handleDrop = async (e: DragEvent) => {
+            e.preventDefault();
+
+            try {
+                const data = e.dataTransfer!.getData('application/json');
+                if (!data) return;
+
+                const credential = JSON.parse(data);
+
+                // Check if this is a SecureFox credential
+                if (credential.type !== 'securefox/credential') return;
+
+                // Get the target element
+                const target = e.target as HTMLElement;
+                const input = target.closest('input') as HTMLInputElement;
+
+                if (!input) {
+                    showNotification('请将凭据拖拽到输入框中', 'warning');
+                    return;
+                }
+
+                // Determine if this is a username or password field
+                const isPasswordField = input.type === 'password';
+                const isUsernameField = input.type === 'text' || input.type === 'email';
+
+                if (isPasswordField && credential.password) {
+                    // Fill password
+                    fillField(input, credential.password);
+                    showNotification(`已填充 ${credential.name} 的密码`, 'success');
+
+                    // Try to find and fill username field
+                    const usernameField = detectUsernameField(input);
+                    if (usernameField && credential.username) {
+                        fillField(usernameField, credential.username);
+                    }
+                } else if (isUsernameField && credential.username) {
+                    // Fill username
+                    fillField(input, credential.username);
+                    showNotification(`已填充 ${credential.name} 的用户名`, 'success');
+
+                    // Try to find and fill password field
+                    const passwordFields = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
+                    if (passwordFields.length > 0 && credential.password) {
+                        fillField(passwordFields[0], credential.password);
+                    }
+                } else {
+                    showNotification('无法识别的输入框类型', 'warning');
+                }
+            } catch (error) {
+                console.error('Failed to handle drop:', error);
+                showNotification('拖放填充失败', 'error');
+            }
+        };
+
+        // Helper function to fill field with animation
+        const fillField = (field: HTMLInputElement, value: string) => {
+            field.style.transition = 'background-color 0.3s ease';
+            field.style.backgroundColor = '#dbeafe';
+
+            field.value = value;
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+
+            setTimeout(() => {
+                field.style.backgroundColor = '';
+                setTimeout(() => {
+                    field.style.transition = '';
+                }, 300);
+            }, 300);
+        };
+
+        // Add event listeners to document
+        document.addEventListener('dragover', handleDragOver);
+        document.addEventListener('drop', handleDrop);
+
+        console.log('SecureFox: Drag and drop support initialized');
     };
 
         // Show save/update password prompt
@@ -929,6 +1079,9 @@ export default defineContentScript({
             document.addEventListener('keydown', handleKeyboardShortcut, true);
             document.addEventListener('submit', handleFormSubmit, true);
             document.addEventListener('click', handleButtonClick, true);
+
+            // Add drag and drop support
+            initializeDragAndDrop();
 
             // Check for pending credentials from previous page
             await checkPendingCredentials();

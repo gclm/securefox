@@ -370,6 +370,12 @@ export default defineBackground(() => {
                         sendResponse({success: true});
                         break;
 
+                    case 'UPDATE_AUTOFILL_SETTING':
+                        // Autofill on page load setting updated
+                        // No action needed - the setting is stored and used when page loads
+                        sendResponse({success: true});
+                        break;
+
                     default:
                         sendResponse({error: 'Unknown message type'});
                 }
@@ -435,7 +441,7 @@ export default defineBackground(() => {
         }
     });
 
-    // Monitor tab URL changes to update badge
+    // Monitor tab URL changes to update badge and handle autofill
     chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         // Only update when URL changes
         if (changeInfo.url && tab.url) {
@@ -443,6 +449,55 @@ export default defineBackground(() => {
                 await updateBadge(tab.url, tabId);
             } catch (error) {
                 console.error('Failed to update badge on tab update:', error);
+            }
+        }
+
+        // Handle autofill on page load
+        if (changeInfo.status === 'complete' && tab.url) {
+            try {
+                // Check if autofill on page load is enabled
+                const result = await chrome.storage.local.get('autofillOnPageLoad');
+                const autofillEnabled = result.autofillOnPageLoad === true;
+
+                if (!autofillEnabled) {
+                    return; // Autofill is disabled
+                }
+
+                // Check if vault is unlocked
+                const isUnlocked = await authApi.isUnlocked();
+                if (!isUnlocked) {
+                    return; // Don't autofill when vault is locked
+                }
+
+                // Get matching entries
+                const allEntries = await entriesApi.getEntries();
+                const matchingEntries = findMatchingItems(allEntries, tab.url);
+
+                // Only autofill if there's exactly one match
+                if (matchingEntries.length === 1) {
+                    const entry = matchingEntries[0];
+
+                    // Check if this is an HTTP connection (not HTTPS)
+                    const isHttpConnection = tab.url.startsWith('http:') && !tab.url.startsWith('https:');
+
+                    // Send autofill message to content script
+                    chrome.tabs.sendMessage(tabId, {
+                        type: MESSAGE_TYPES.FILL_CREDENTIALS,
+                        data: entry,
+                        isHttpConnection: isHttpConnection, // Pass HTTP flag for warning
+                    }).catch(() => {
+                        // Content script might not be ready yet, that's okay
+                        console.log('Content script not ready for autofill');
+                    });
+
+                    if (isHttpConnection) {
+                        console.log(`SecureFox: Auto-filled credentials for ${entry.name} on HTTP site`);
+                    } else {
+                        console.log(`SecureFox: Auto-filled credentials for ${entry.name}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to handle autofill on page load:', error);
             }
         }
     });

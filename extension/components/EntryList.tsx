@@ -292,11 +292,31 @@ export const EntryList: React.FC<EntryListProps> = ({view}) => {
         const isCopiedPassword = isCopied && copyType === 'password';
         const isCopiedTotp = isCopied && copyType === 'totp';
 
+        // 拖拽处理函数
+        const handleDragStart = (e: React.DragEvent) => {
+            if (item.type === ItemType.Login && item.login) {
+                const dragData = {
+                    type: 'securefox/credential',
+                    username: item.login.username || '',
+                    password: item.login.password || '',
+                    name: item.name
+                };
+                e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                e.dataTransfer.effectAllowed = 'copy';
+
+                // 设置拖拽图像
+                e.dataTransfer.setDragImage(e.currentTarget as HTMLElement, 0, 0);
+            }
+        };
+
         return (
             <div
                 key={item.id}
                 className="flex items-center gap-4 p-4 rounded-xl bg-white hover:shadow-lg cursor-pointer transition-all duration-200 border border-gray-200 hover:border-blue-300 group"
                 onClick={() => handleItemClick(item)}
+                draggable={item.type === ItemType.Login && !!item.login}
+                onDragStart={handleDragStart}
+                title={item.type === ItemType.Login ? "拖拽可填充用户名和密码" : undefined}
             >
                 <div
                     className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
