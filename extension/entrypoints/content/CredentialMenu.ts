@@ -45,7 +45,7 @@ export class CredentialMenu {
       position: fixed;
       background: white;
       border: 1px solid #e5e5e5;
-      border-radius: 8px;
+      border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
       max-height: 320px;
       min-width: 280px;
@@ -72,95 +72,78 @@ export class CredentialMenu {
   private renderContent(menu: HTMLDivElement): void {
     menu.innerHTML = '';
 
-    // 头部
-    const header = document.createElement('div');
-    header.style.cssText = `
-      padding: 12px 16px;
-      border-bottom: 1px solid #e5e5e5;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #f9fafb;
-    `;
-    header.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2C9.243 2 7 4.243 7 7V10H6C4.895 10 4 10.895 4 12V20C4 21.105 4.895 22 6 22H18C19.105 22 20 21.105 20 20V12C20 10.895 19.105 10 18 10H17V7C17 4.243 14.757 2 12 2ZM9 7C9 5.346 10.346 4 12 4C13.654 4 15 5.346 15 7V10H9V7Z" 
-                fill="#3b82f6"/>
-        </svg>
-        <span style="font-weight: 600; color: #374151; font-size: 14px;">SecureFox</span>
-      </div>
-      <span style="color: #9ca3af; font-size: 12px;">${this.credentials.length} 项</span>
-    `;
-    menu.appendChild(header);
-
-    // 凭据列表容器
-    const listContainer = document.createElement('div');
-    listContainer.style.cssText = `
-      overflow-y: auto;
-      max-height: 240px;
-    `;
-
     if (this.credentials.length === 0) {
       // 空状态
       const emptyState = document.createElement('div');
       emptyState.style.cssText = `
-        padding: 32px 16px;
+        padding: 24px 16px;
         text-align: center;
         color: #9ca3af;
         font-size: 14px;
       `;
       emptyState.textContent = '没有找到匹配的凭据';
-      listContainer.appendChild(emptyState);
+      menu.appendChild(emptyState);
     } else {
+      // 凭据列表容器
+      const listContainer = document.createElement('div');
+      listContainer.style.cssText = `
+        padding: 8px;
+        max-height: 260px;
+        overflow-y: auto;
+      `;
+
       // 渲染凭据项
       this.credentials.forEach((credential, index) => {
         const item = this.createCredentialItem(credential, index);
         listContainer.appendChild(item);
       });
-    }
 
-    menu.appendChild(listContainer);
+      menu.appendChild(listContainer);
 
-    // 底部操作栏
-    const footer = document.createElement('div');
-    footer.style.cssText = `
-      padding: 8px;
-      border-top: 1px solid #e5e5e5;
-      background: #f9fafb;
-    `;
-    footer.innerHTML = `
-      <button class="securefox-menu-action" data-action="open-vault" style="
+      // 底部操作区 - 使用背景色区分，不用分割线
+      const footer = document.createElement('div');
+      footer.style.cssText = `
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-top: 1px solid #e5e7eb;
+      `;
+
+      const openVaultBtn = document.createElement('button');
+      openVaultBtn.className = 'securefox-open-vault-btn';
+      openVaultBtn.textContent = '打开插件';
+      openVaultBtn.style.cssText = `
         width: 100%;
-        padding: 8px 12px;
+        padding: 10px;
         border: none;
-        background: transparent;
-        color: #3b82f6;
-        font-size: 13px;
-        font-weight: 500;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 8px;
         cursor: pointer;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        transition: background 0.2s;
-      " onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'" onmouseout="this.style.background='transparent'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11M15 3H21M21 3V9M21 3L10 14" 
-                stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        在插件中打开
-      </button>
-    `;
-    menu.appendChild(footer);
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+      `;
 
-    // 底部操作事件
-    const openVaultBtn = footer.querySelector('[data-action="open-vault"]');
-    openVaultBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.openVault();
-    });
+      // 悬停效果
+      openVaultBtn.addEventListener('mouseenter', () => {
+        openVaultBtn.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
+        openVaultBtn.style.transform = 'translateY(-1px)';
+      });
+      openVaultBtn.addEventListener('mouseleave', () => {
+        openVaultBtn.style.boxShadow = '0 2px 4px rgba(59, 130, 246, 0.2)';
+        openVaultBtn.style.transform = 'translateY(0)';
+      });
+
+      // 点击事件
+      openVaultBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openVault();
+      });
+
+      footer.appendChild(openVaultBtn);
+      menu.appendChild(footer);
+    }
   }
 
   /**
@@ -171,31 +154,33 @@ export class CredentialMenu {
     item.className = 'securefox-credential-item';
     item.setAttribute('data-index', index.toString());
     item.style.cssText = `
-      padding: 12px 16px;
+      padding: 12px;
       cursor: pointer;
-      border-bottom: 1px solid #f3f4f6;
-      transition: background 0.15s;
+      border-radius: 8px;
+      transition: all 0.15s;
       display: flex;
       align-items: center;
       gap: 12px;
     `;
 
-    // 图标
+    // 图标 - 蓝色渐变
     const icon = document.createElement('div');
     icon.style.cssText = `
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       flex-shrink: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
-      font-weight: 600;
-      font-size: 16px;
+      box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
     `;
-    icon.textContent = credential.name.charAt(0).toUpperCase();
+    icon.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M7 14C7 14 7 14 7 14C7 14.5304 7.21071 15.0391 7.58579 15.4142C7.96086 15.7893 8.46957 16 9 16H15C15.5304 16 16.0391 15.7893 16.4142 15.4142C16.7893 15.0391 17 14.5304 17 14V7C17 6.46957 16.7893 5.96086 16.4142 5.58579C16.0391 5.21071 15.5304 5 15 5H9C8.46957 5 7.96086 5.21071 7.58579 5.58579C7.21071 5.96086 7 6.46957 7 7V14Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
     item.appendChild(icon);
 
     // 文本内容
@@ -208,10 +193,10 @@ export class CredentialMenu {
       gap: 2px;
     `;
     textContent.innerHTML = `
-      <div style="font-weight: 500; color: #111827; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+      <div style="font-weight: 500; color: #1e293b; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
         ${this.escapeHtml(credential.name)}
       </div>
-      <div style="color: #6b7280; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+      <div style="color: #64748b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
         ${this.escapeHtml(credential.login?.username || '无用户名')}
       </div>
     `;
@@ -241,9 +226,9 @@ export class CredentialMenu {
       (item as HTMLElement).style.background = 'transparent';
     });
 
-    // 高亮当前项
+    // 高亮当前项 - 使用蓝色背景
     if (index >= 0 && index < items.length) {
-      (items[index] as HTMLElement).style.background = '#eff6ff';
+      (items[index] as HTMLElement).style.background = 'rgba(59, 130, 246, 0.1)';
       this.selectedIndex = index;
     }
   }
@@ -254,6 +239,14 @@ export class CredentialMenu {
   private selectCredential(credential: Credential): void {
     this.hide();
     this.onSelect(credential);
+  }
+
+  /**
+   * 打开插件
+   */
+  private openVault(): void {
+    chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
+    this.hide();
   }
 
   /**
@@ -296,13 +289,13 @@ export class CredentialMenu {
    */
   private moveSelection(direction: number): void {
     const newIndex = this.selectedIndex + direction;
-    
+
     if (newIndex >= 0 && newIndex < this.credentials.length) {
       this.selectItem(newIndex);
-      
+
       // 滚动到可见区域
       const items = this.menuElement.querySelectorAll('.securefox-credential-item');
-      (items[newIndex] as HTMLElement).scrollIntoView({ block: 'nearest' });
+      (items[newIndex] as HTMLElement).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }
 
@@ -349,7 +342,7 @@ export class CredentialMenu {
         this.menuElement.parentNode.removeChild(this.menuElement);
       }
       this.isVisible = false;
-    }, 200);
+    }, 250);
 
     document.removeEventListener('click', this.handleOutsideClick);
   }
@@ -374,23 +367,23 @@ export class CredentialMenu {
     const viewportWidth = window.innerWidth;
 
     // 默认位置：输入框下方
-    let top = anchorRect.bottom + 4;
+    let top = anchorRect.bottom + 6;
     let left = anchorRect.left;
 
     // 检查是否超出底部
-    if (top + menuRect.height > viewportHeight - 16) {
+    if (top + menuRect.height > viewportHeight - 20) {
       // 放在输入框上方
-      top = anchorRect.top - menuRect.height - 4;
+      top = anchorRect.top - menuRect.height - 6;
     }
 
     // 检查是否超出右侧
-    if (left + menuRect.width > viewportWidth - 16) {
-      left = viewportWidth - menuRect.width - 16;
+    if (left + menuRect.width > viewportWidth - 20) {
+      left = viewportWidth - menuRect.width - 20;
     }
 
     // 确保不超出左侧
-    if (left < 16) {
-      left = 16;
+    if (left < 20) {
+      left = 20;
     }
 
     this.menuElement.style.top = `${top}px`;
@@ -398,19 +391,11 @@ export class CredentialMenu {
   }
 
   /**
-   * 打开插件
-   */
-  private openVault(): void {
-    chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
-    this.hide();
-  }
-
-  /**
    * 销毁菜单
    */
   destroy(): void {
     this.hide();
-    
+
     // 清理键盘监听
     const handler = (this.menuElement as any)._keydownHandler;
     if (handler) {
