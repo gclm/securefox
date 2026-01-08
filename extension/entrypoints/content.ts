@@ -44,8 +44,8 @@ export default defineContentScript({
         };
 
         // Detect credit card fields
-        const detectCardFields = (): Array<{field: HTMLInputElement; type: 'number' | 'cvv' | 'exp'}> => {
-            const fields: Array<{field: HTMLInputElement; type: 'number' | 'cvv' | 'exp'}> = [];
+        const detectCardFields = (): Array<{ field: HTMLInputElement; type: 'number' | 'cvv' | 'exp' }> => {
+            const fields: Array<{ field: HTMLInputElement; type: 'number' | 'cvv' | 'exp' }> = [];
 
             // Credit card number field patterns
             const cardNumberSelectors = [
@@ -109,8 +109,8 @@ export default defineContentScript({
         };
 
         // Detect identity fields
-        const detectIdentityFields = (): Array<{field: HTMLInputElement; fieldType: string}> => {
-            const fields: Array<{field: HTMLInputElement; fieldType: string}> = [];
+        const detectIdentityFields = (): Array<{ field: HTMLInputElement; fieldType: string }> => {
+            const fields: Array<{ field: HTMLInputElement; fieldType: string }> = [];
 
             // Name field patterns
             const nameSelectors = [
@@ -180,7 +180,7 @@ export default defineContentScript({
             ];
 
             // Detect all identity field types
-            const fieldTypes: Array<{selectors: string[], type: string}> = [
+            const fieldTypes: Array<{ selectors: string[], type: string }> = [
                 {selectors: nameSelectors, type: 'name'},
                 {selectors: emailSelectors, type: 'email'},
                 {selectors: phoneSelectors, type: 'phone'},
@@ -199,9 +199,9 @@ export default defineContentScript({
                     if (element && !element.disabled && !element.hasAttribute('data-securefox-processed')) {
                         // Skip if this is a login field (password or username field in a login form)
                         const isLoginField = element.type === 'password' ||
-                                          element.hasAttribute('autocomplete') &&
-                                          (element.getAttribute('autocomplete') === 'username' ||
-                                           element.getAttribute('autocomplete') === 'current-password');
+                            element.hasAttribute('autocomplete') &&
+                            (element.getAttribute('autocomplete') === 'username' ||
+                                element.getAttribute('autocomplete') === 'current-password');
 
                         if (!isLoginField) {
                             fields.push({field: element, fieldType: type});
@@ -282,8 +282,8 @@ export default defineContentScript({
             field.style.backgroundColor = '#dbeafe';
 
             field.value = value;
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-            field.dispatchEvent(new Event('change', { bubbles: true }));
+            field.dispatchEvent(new Event('input', {bubbles: true}));
+            field.dispatchEvent(new Event('change', {bubbles: true}));
 
             setTimeout(() => {
                 field.style.backgroundColor = '';
@@ -327,7 +327,8 @@ export default defineContentScript({
                 });
 
                 if (!statusResponse.isUnlocked) {
-                    showNotification('请先解锁密码库以使用信用卡填充', 'warning');
+                    // Vault is locked, show unlock prompt menu
+                    showUnlockPromptMenu(element);
                     return;
                 }
 
@@ -366,7 +367,7 @@ export default defineContentScript({
             }
         };
 
-        // Fill card field with selected card data
+        // Fill all card fields with selected card data
         const fillCardField = async (card: any, fieldType: 'number' | 'cvv' | 'exp', targetElement: HTMLInputElement) => {
             // Check HTTP warning before filling
             const shouldContinue = await showHttpWarningDialog();
@@ -376,32 +377,70 @@ export default defineContentScript({
             }
             try {
                 const cardData = card.card;
+                let filledCount = 0;
 
-                switch (fieldType) {
-                    case 'number':
-                        if (cardData.number) {
-                            fillField(targetElement, cardData.number);
-                            showNotification(`已填充 ${card.name} 的卡号`, 'success');
-                        }
+                // Detect all card fields in the current form
+                const cardNumberSelectors = [
+                    'input[type="text"][name*="card" i][name*="number" i]',
+                    'input[type="text"][name*="cc" i][name*="number" i]',
+                    'input[type="text"][autocomplete="cc-number"]',
+                ];
+
+                const cvvSelectors = [
+                    'input[type="text"][name*="cvv" i]',
+                    'input[type="text"][name*="cvc" i]',
+                    'input[type="text"][name*="cvc2" i]',
+                    'input[type="password"][name*="cvv" i]',
+                    'input[type="password"][name*="cvc" i]',
+                    'input[type="password"][autocomplete="cc-csc"]',
+                ];
+
+                const expSelectors = [
+                    'input[type="text"][name*="exp" i]',
+                    'input[type="text"][name*="expiry" i]',
+                    'input[type="text"][autocomplete="cc-exp"]',
+                    'input[type="month"][name*="exp" i]',
+                ];
+
+                // Find and fill card number
+                for (const selector of cardNumberSelectors) {
+                    const field = document.querySelector<HTMLInputElement>(selector);
+                    if (field && !field.disabled && !field.value && cardData.number) {
+                        fillField(field, cardData.number);
+                        filledCount++;
+                        break; // Only fill the first matching field
+                    }
+                }
+
+                // Find and fill CVV
+                for (const selector of cvvSelectors) {
+                    const field = document.querySelector<HTMLInputElement>(selector);
+                    if (field && !field.disabled && !field.value && cardData.code) {
+                        fillField(field, cardData.code);
+                        filledCount++;
                         break;
+                    }
+                }
 
-                    case 'cvv':
-                        if (cardData.code) {
-                            fillField(targetElement, cardData.code);
-                            showNotification(`已填充 ${card.name} 的安全码`, 'success');
-                        }
-                        break;
-
-                    case 'exp':
-                        // Format expiration as MM/YY
+                // Find and fill expiration
+                for (const selector of expSelectors) {
+                    const field = document.querySelector<HTMLInputElement>(selector);
+                    if (field && !field.disabled && !field.value) {
                         if (cardData.expMonth && cardData.expYear) {
                             const expMonth = cardData.expMonth.padStart(2, '0');
                             const expYear = cardData.expYear.slice(-2); // Last 2 digits
                             const expValue = `${expMonth}/${expYear}`;
-                            fillField(targetElement, expValue);
-                            showNotification(`已填充 ${card.name} 的有效期`, 'success');
+                            fillField(field, expValue);
+                            filledCount++;
+                            break;
                         }
-                        break;
+                    }
+                }
+
+                if (filledCount > 0) {
+                    showNotification(`已填充 ${card.name} 的信用卡信息`, 'success');
+                } else {
+                    showNotification('未找到可填充的信用卡字段', 'warning');
                 }
             } catch (error) {
                 console.error('Failed to fill card field:', error);
@@ -443,7 +482,8 @@ export default defineContentScript({
                 });
 
                 if (!statusResponse.isUnlocked) {
-                    showNotification('请先解锁密码库以使用身份信息填充', 'warning');
+                    // Vault is locked, show unlock prompt menu
+                    showUnlockPromptMenu(element);
                     return;
                 }
 
@@ -888,10 +928,12 @@ export default defineContentScript({
 
             // Store reference
             (menu as any)._closeHandler = closeHandler;
-            currentMenu = { destroy: () => {
-                menu.remove();
-                document.removeEventListener('click', closeHandler);
-            }} as any;
+            currentMenu = {
+                destroy: () => {
+                    menu.remove();
+                    document.removeEventListener('click', closeHandler);
+                }
+            } as any;
         };
 
         // Show create new credential prompt menu
@@ -1010,10 +1052,12 @@ export default defineContentScript({
 
             // Store reference
             (menu as any)._closeHandler = closeHandler;
-            currentMenu = { destroy: () => {
-                menu.remove();
-                document.removeEventListener('click', closeHandler);
-            }} as any;
+            currentMenu = {
+                destroy: () => {
+                    menu.remove();
+                    document.removeEventListener('click', closeHandler);
+                }
+            } as any;
         };
 
         // Show credential selection menu (legacy, kept for compatibility)
@@ -1427,122 +1471,122 @@ export default defineContentScript({
             }
         };
 
-    // Prompt user to save password
-    const promptSavePassword = async (credentials: { username: string; password: string; url: string }) => {
-      // Check if vault is unlocked before showing prompt
-      try {
-        const response = await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.GET_STATUS });
-
-        if (!response.isUnlocked) {
-          // Vault is locked, show notification to unlock first
-          showNotification('请先解锁密码库以保存密码', 'info');
-          return;
-        }
-
-        // Check if entry already exists for this domain and username
-        const existingResponse = await chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
-          domain: window.location.hostname,
-        });
-
-        let isUpdate = false;
-        if (existingResponse && existingResponse.entries && existingResponse.entries.length > 0) {
-          // Check if any entry matches the username
-          const matchingEntry = existingResponse.entries.find((entry: any) =>
-            entry.login?.username === credentials.username
-          );
-
-          if (matchingEntry) {
-            // Check if password is different
-            if (matchingEntry.login?.password !== credentials.password) {
-              isUpdate = true;
-              console.log('SecureFox: Found existing entry with different password, will show update prompt');
-            } else {
-              // Same password, no need to save
-              console.log('SecureFox: Entry already exists with same password, skipping prompt');
-              return;
-            }
-          }
-        }
-
-        // Show save or update prompt
-        showSavePrompt(credentials, isUpdate);
-      } catch (error) {
-        console.error('Failed to check lock status:', error);
-        // If unable to check status, still show the prompt
-        showSavePrompt(credentials, false);
-      }
-    };
-
-    // Initialize drag and drop support for credential autofill
-    const initializeDragAndDrop = () => {
-        // Allow drop on all input fields
-        const handleDragOver = (e: DragEvent) => {
-            e.preventDefault();
-            e.dataTransfer!.dropEffect = 'copy';
-        };
-
-        // Handle drop event
-        const handleDrop = async (e: DragEvent) => {
-            e.preventDefault();
-
+        // Prompt user to save password
+        const promptSavePassword = async (credentials: { username: string; password: string; url: string }) => {
+            // Check if vault is unlocked before showing prompt
             try {
-                const data = e.dataTransfer!.getData('application/json');
-                if (!data) return;
+                const response = await chrome.runtime.sendMessage({type: MESSAGE_TYPES.GET_STATUS});
 
-                const credential = JSON.parse(data);
-
-                // Check if this is a SecureFox credential
-                if (credential.type !== 'securefox/credential') return;
-
-                // Get the target element
-                const target = e.target as HTMLElement;
-                const input = target.closest('input') as HTMLInputElement;
-
-                if (!input) {
-                    showNotification('请将凭据拖拽到输入框中', 'warning');
+                if (!response.isUnlocked) {
+                    // Vault is locked, show notification to unlock first
+                    showNotification('请先解锁密码库以保存密码', 'info');
                     return;
                 }
 
-                // Determine if this is a username or password field
-                const isPasswordField = input.type === 'password';
-                const isUsernameField = input.type === 'text' || input.type === 'email';
+                // Check if entry already exists for this domain and username
+                const existingResponse = await chrome.runtime.sendMessage({
+                    type: MESSAGE_TYPES.REQUEST_CREDENTIALS,
+                    domain: window.location.hostname,
+                });
 
-                if (isPasswordField && credential.password) {
-                    // Fill password
-                    fillField(input, credential.password);
-                    showNotification(`已填充 ${credential.name} 的密码`, 'success');
+                let isUpdate = false;
+                if (existingResponse && existingResponse.entries && existingResponse.entries.length > 0) {
+                    // Check if any entry matches the username
+                    const matchingEntry = existingResponse.entries.find((entry: any) =>
+                        entry.login?.username === credentials.username
+                    );
 
-                    // Try to find and fill username field
-                    const usernameField = detectUsernameField(input);
-                    if (usernameField && credential.username) {
-                        fillField(usernameField, credential.username);
+                    if (matchingEntry) {
+                        // Check if password is different
+                        if (matchingEntry.login?.password !== credentials.password) {
+                            isUpdate = true;
+                            console.log('SecureFox: Found existing entry with different password, will show update prompt');
+                        } else {
+                            // Same password, no need to save
+                            console.log('SecureFox: Entry already exists with same password, skipping prompt');
+                            return;
+                        }
                     }
-                } else if (isUsernameField && credential.username) {
-                    // Fill username
-                    fillField(input, credential.username);
-                    showNotification(`已填充 ${credential.name} 的用户名`, 'success');
-
-                    // Try to find and fill password field
-                    const passwordFields = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
-                    if (passwordFields.length > 0 && credential.password) {
-                        fillField(passwordFields[0], credential.password);
-                    }
-                } else {
-                    showNotification('无法识别的输入框类型', 'warning');
                 }
+
+                // Show save or update prompt
+                showSavePrompt(credentials, isUpdate);
             } catch (error) {
-                console.error('Failed to handle drop:', error);
-                showNotification('拖放填充失败', 'error');
+                console.error('Failed to check lock status:', error);
+                // If unable to check status, still show the prompt
+                showSavePrompt(credentials, false);
             }
         };
 
-        // Add event listeners to document
-        document.addEventListener('dragover', handleDragOver);
-        document.addEventListener('drop', handleDrop);
+        // Initialize drag and drop support for credential autofill
+        const initializeDragAndDrop = () => {
+            // Allow drop on all input fields
+            const handleDragOver = (e: DragEvent) => {
+                e.preventDefault();
+                e.dataTransfer!.dropEffect = 'copy';
+            };
 
-        console.log('SecureFox: Drag and drop support initialized');
-    };
+            // Handle drop event
+            const handleDrop = async (e: DragEvent) => {
+                e.preventDefault();
+
+                try {
+                    const data = e.dataTransfer!.getData('application/json');
+                    if (!data) return;
+
+                    const credential = JSON.parse(data);
+
+                    // Check if this is a SecureFox credential
+                    if (credential.type !== 'securefox/credential') return;
+
+                    // Get the target element
+                    const target = e.target as HTMLElement;
+                    const input = target.closest('input') as HTMLInputElement;
+
+                    if (!input) {
+                        showNotification('请将凭据拖拽到输入框中', 'warning');
+                        return;
+                    }
+
+                    // Determine if this is a username or password field
+                    const isPasswordField = input.type === 'password';
+                    const isUsernameField = input.type === 'text' || input.type === 'email';
+
+                    if (isPasswordField && credential.password) {
+                        // Fill password
+                        fillField(input, credential.password);
+                        showNotification(`已填充 ${credential.name} 的密码`, 'success');
+
+                        // Try to find and fill username field
+                        const usernameField = detectUsernameField(input);
+                        if (usernameField && credential.username) {
+                            fillField(usernameField, credential.username);
+                        }
+                    } else if (isUsernameField && credential.username) {
+                        // Fill username
+                        fillField(input, credential.username);
+                        showNotification(`已填充 ${credential.name} 的用户名`, 'success');
+
+                        // Try to find and fill password field
+                        const passwordFields = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
+                        if (passwordFields.length > 0 && credential.password) {
+                            fillField(passwordFields[0], credential.password);
+                        }
+                    } else {
+                        showNotification('无法识别的输入框类型', 'warning');
+                    }
+                } catch (error) {
+                    console.error('Failed to handle drop:', error);
+                    showNotification('拖放填充失败', 'error');
+                }
+            };
+
+            // Add event listeners to document
+            document.addEventListener('dragover', handleDragOver);
+            document.addEventListener('drop', handleDrop);
+
+            console.log('SecureFox: Drag and drop support initialized');
+        };
 
         // Show save/update password prompt
         const showSavePrompt = (credentials: {
