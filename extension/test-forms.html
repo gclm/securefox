@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureFox 功能测试页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .form-section {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .form-section h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-section h2 .icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .login-icon {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+
+        .card-icon {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+        }
+
+        .identity-icon {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-row.three {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #475569;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        label .hint {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            font-weight: normal;
+            margin-left: 8px;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="tel"],
+        input[type="month"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .info-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #92400e;
+        }
+
+        .status-box {
+            background: #ecfdf5;
+            border-left: 4px solid #10b981;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #065f46;
+        }
+
+        .test-info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+            color: #1e40af;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .form-row.three {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦊 SecureFox 功能测试</h1>
+        <p class="subtitle">测试自动填充功能 - 请确保扩展已加载并解锁</p>
+
+        <!-- 登录表单 -->
+        <div class="form-section">
+            <h2>
+                <span class="icon login-icon">🔐</span>
+                登录表单测试
+            </h2>
+            <div class="test-info">
+                <strong>测试说明：</strong>点击用户名或密码输入框，应该显示蓝色图标。点击图标可查看凭据列表。
+            </div>
+            <form>
+                <div class="form-group">
+                    <label for="username">用户名/邮箱</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        autocomplete="username"
+                        placeholder="请输入用户名或邮箱"
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        autocomplete="current-password"
+                        placeholder="请输入密码"
+                    >
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="remember">记住我</label>
+                        <input type="checkbox" id="remember" style="width: auto;">
+                    </div>
+                    <div class="form-group">
+                        <button type="button">登录</button>
+                    </div>
+                </div>
+            </form>
+            <div class="status-box" id="login-status">
+                等待测试... 请在上方输入框中测试填充功能
+            </div>
+        </div>
+
+        <!-- 信用卡表单 -->
+        <div class="form-section">
+            <h2>
+                <span class="icon card-icon">💳</span>
+                信用卡表单测试
+            </h2>
+            <div class="test-info">
+                <strong>测试说明：</strong>点击卡号、CVV 或有效期输入框，应该显示紫色图标。
+            </div>
+            <form>
+                <div class="form-group">
+                    <label for="card-number">信用卡号 <span class="hint">autocomplete="cc-number"</span></label>
+                    <input
+                        type="text"
+                        id="card-number"
+                        name="card-number"
+                        autocomplete="cc-number"
+                        placeholder="1234 5678 9012 3456"
+                        maxlength="19"
+                    >
+                </div>
+                <div class="form-row three">
+                    <div class="form-group">
+                        <label for="card-exp">有效期 <span class="hint">autocomplete="cc-exp"</span></label>
+                        <input
+                            type="text"
+                            id="card-exp"
+                            name="card-exp"
+                            autocomplete="cc-exp"
+                            placeholder="MM/YY"
+                            maxlength="5"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="card-cvv">CVV <span class="hint">autocomplete="cc-csc"</span></label>
+                        <input
+                            type="password"
+                            id="card-cvv"
+                            name="card-cvv"
+                            autocomplete="cc-csc"
+                            placeholder="123"
+                            maxlength="4"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="card-name">持卡人姓名</label>
+                        <input
+                            type="text"
+                            id="card-name"
+                            name="card-name"
+                            placeholder="ZHANG SAN"
+                        >
+                    </div>
+                </div>
+                <button type="button">提交支付</button>
+            </form>
+            <div class="status-box" id="card-status">
+                等待测试... 请在上方输入框中测试填充功能
+            </div>
+        </div>
+
+        <!-- 身份信息表单 -->
+        <div class="form-section">
+            <h2>
+                <span class="icon identity-icon">👤</span>
+                身份信息表单测试
+            </h2>
+            <div class="test-info">
+                <strong>测试说明：</strong>点击任意身份信息字段，应该显示绿色图标。
+            </div>
+            <form>
+                <!-- 基本信息 -->
+                <div class="info-box">基本信息</div>
+                <div class="form-row three">
+                    <div class="form-group">
+                        <label for="first-name">名字 <span class="hint">autocomplete="given-name"</span></label>
+                        <input
+                            type="text"
+                            id="first-name"
+                            name="first-name"
+                            autocomplete="given-name"
+                            placeholder="San"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="middle-name">中间名</label>
+                        <input
+                            type="text"
+                            id="middle-name"
+                            name="middle-name"
+                            placeholder=""
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="last-name">姓氏 <span class="hint">autocomplete="family-name"</span></label>
+                        <input
+                            type="text"
+                            id="last-name"
+                            name="last-name"
+                            autocomplete="family-name"
+                            placeholder="Zhang"
+                        >
+                    </div>
+                </div>
+
+                <!-- 联系方式 -->
+                <div class="info-box">联系方式</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="email">电子邮箱 <span class="hint">autocomplete="email"</span></label>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            autocomplete="email"
+                            placeholder="example@email.com"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">电话 <span class="hint">autocomplete="tel"</span></label>
+                        <input
+                            type="tel"
+                            id="phone"
+                            name="phone"
+                            autocomplete="tel"
+                            placeholder="13800138000"
+                        >
+                    </div>
+                </div>
+
+                <!-- 地址信息 -->
+                <div class="info-box">地址信息</div>
+                <div class="form-group">
+                    <label for="address">街道地址 <span class="hint">autocomplete="street-address"</span></label>
+                    <input
+                        type="text"
+                        id="address"
+                        name="address"
+                        autocomplete="street-address"
+                        placeholder="朝阳区建国路88号"
+                    >
+                </div>
+                <div class="form-row three">
+                    <div class="form-group">
+                        <label for="city">城市 <span class="hint">autocomplete="city"</span></label>
+                        <input
+                            type="text"
+                            id="city"
+                            name="city"
+                            autocomplete="city"
+                            placeholder="北京市"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="state">省/州 <span class="hint">autocomplete="state"</span></label>
+                        <input
+                            type="text"
+                            id="state"
+                            name="state"
+                            autocomplete="state"
+                            placeholder="北京"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="postal">邮编 <span class="hint">autocomplete="postal-code"</span></label>
+                        <input
+                            type="text"
+                            id="postal"
+                            name="postal"
+                            autocomplete="postal-code"
+                            placeholder="100000"
+                        >
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="country">国家 <span class="hint">autocomplete="country"</span></label>
+                        <input
+                            type="text"
+                            id="country"
+                            name="country"
+                            autocomplete="country"
+                            placeholder="中国"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="company">公司 <span class="hint">autocomplete="organization"</span></label>
+                        <input
+                            type="text"
+                            id="company"
+                            name="company"
+                            autocomplete="organization"
+                            placeholder="某某科技有限公司"
+                        >
+                    </div>
+                </div>
+
+                <button type="button">提交信息</button>
+            </form>
+            <div class="status-box" id="identity-status">
+                等待测试... 请在上方输入框中测试填充功能
+            </div>
+        </div>
+
+        <!-- 测试说明 -->
+        <div class="form-section">
+            <h2>📋 测试检查清单</h2>
+            <div class="info-box">
+                <strong>图标颜色检查：</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>🔵 <strong>蓝色图标</strong> - 应该出现在用户名输入框（登录表单）</li>
+                    <li>🟣 <strong>紫色图标</strong> - 应该出现在信用卡号、CVV、有效期输入框</li>
+                    <li>🟢 <strong>绿色图标</strong> - 应该出现在所有身份信息输入框</li>
+                </ul>
+            </div>
+            <div class="info-box" style="border-left-color: #8b5cf6; background: #f3e8ff;">
+                <strong>功能测试步骤：</strong>
+                <ol style="margin-left: 20px; margin-top: 10px;">
+                    <li>确保 SecureFox 扩展已安装并解锁</li>
+                    <li>点击各种类型的输入框</li>
+                    <li>检查是否出现正确颜色的图标</li>
+                    <li>点击图标，查看是否显示对应的菜单</li>
+                    <li>选择一个项目，检查是否正确填充</li>
+                </ol>
+            </div>
+            <div class="info-box" style="border-left-color: #10b981; background: #ecfdf5;">
+                <strong>快速测试：</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>按 <kbd>Ctrl+Shift+L</kbd> (或 Mac 上的 <kbd>Cmd+Shift+L</kbd>) 快捷键测试键盘填充</li>
+                    <li>尝试从扩展拖拽凭据到输入框（拖放填充）</li>
+                </ul>
+            </div>
+            <div class="info-box" style="border-left-color: #f59e0b; background: #fef3c7;">
+                <strong>⚠️ HTTP 安全警告测试：</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>使用 HTTP 访问此页面：<code>http://localhost:8080/test-forms.html</code></li>
+                    <li>尝试填充任何字段，应该弹出安全警告对话框</li>
+                    <li>点击"继续填充"应该完成填充</li>
+                    <li>点击"取消"应该取消填充</li>
+                </ul>
+                <p style="margin-top: 10px; font-size: 0.9rem;">
+                    <strong>注意：</strong>如果使用 HTTPS 访问（如 https://localhost），则不会显示警告。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 显示当前协议
+        const protocol = window.location.protocol;
+        console.log('🦊 SecureFox 测试页面已加载');
+        console.log(`📡 当前协议: ${protocol}`);
+        console.log('📝 请确保：');
+        console.log('  1. SecureFox 扩展已安装');
+        console.log('  2. 密码库已解锁');
+        console.log('  3. 已保存测试用的凭据、信用卡或身份信息');
+
+        // 如果是 HTTP，显示额外提示
+        if (protocol === 'http:') {
+            console.warn('⚠️ 当前使用 HTTP 连接，填充时会显示安全警告');
+        }
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', function() {
+                const section = this.closest('.form-section');
+                const statusBox = section.querySelector('.status-box');
+
+                if (this.value) {
+                    statusBox.innerHTML = `<strong>✅ 已填充：</strong> ${this.previousElementSibling.textContent.trim()} = "${this.value}"`;
+                    statusBox.style.background = '#d1fae5';
+                }
+            });
+
+            // 聚焦时高亮
+            input.addEventListener('focus', function() {
+                const section = this.closest('.form-section');
+                const statusBox = section.querySelector('.status-box');
+                statusBox.innerHTML = `<strong>👆 当前焦点：</strong> ${this.previousElementSibling.textContent.trim()}`;
+                statusBox.style.background = '#dbeafe';
+            });
+        });
+
+        // 阻止表单提交
+        document.querySelectorAll('button[type="submit"], button').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const form = this.closest('form');
+                const inputs = form.querySelectorAll('input[type="text"], input[type="email"], input[type="password"], input[type="tel"]');
+                let filled = 0;
+                let total = inputs.length;
+
+                inputs.forEach(input => {
+                    if (input.value) filled++;
+                });
+
+                const section = this.closest('.form-section');
+                const statusBox = section.querySelector('.status-box');
+
+                if (filled === total) {
+                    statusBox.innerHTML = `<strong>✅ 所有字段已填充：</strong> ${filled}/${total}`;
+                    statusBox.style.background = '#d1fae5';
+                } else if (filled > 0) {
+                    statusBox.innerHTML = `<strong>⚠️ 部分字段已填充：</strong> ${filled}/${total}`;
+                    statusBox.style.background = '#fef3c7';
+                } else {
+                    statusBox.innerHTML = `<strong>❌ 没有字段被填充</strong>`;
+                    statusBox.style.background = '#fee2e2';
+                }
+            });
+        });
+
+        // 页面加载时的提示
+        console.log('🦊 SecureFox 测试页面已加载');
+        console.log('📝 请确保：');
+        console.log('  1. SecureFox 扩展已安装');
+        console.log('  2. 密码库已解锁');
+        console.log('  3. 已保存测试用的凭据、信用卡或身份信息');
+    </script>
+</body>
+</html>

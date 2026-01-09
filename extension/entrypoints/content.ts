@@ -276,21 +276,64 @@ export default defineContentScript({
             icon.show();
         };
 
-        // Helper function to fill field with animation
-        const fillField = (field: HTMLInputElement, value: string) => {
-            field.style.transition = 'background-color 0.3s ease';
+        // Helper function to fill field with enhanced animation
+        const fillField = (field: HTMLInputElement, value: string, options: { animate?: boolean; duration?: number } = {}) => {
+            const { animate = true, duration = 300 } = options;
+
+            // Store original styles
+            const originalTransition = field.style.transition;
+            const originalBackgroundColor = field.style.backgroundColor;
+            const originalBoxShadow = field.style.boxShadow;
+
+            // Apply smooth transitions
+            field.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+
+            // Highlight animation
             field.style.backgroundColor = '#dbeafe';
+            field.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.3)';
 
-            field.value = value;
-            field.dispatchEvent(new Event('input', {bubbles: true}));
-            field.dispatchEvent(new Event('change', {bubbles: true}));
+            if (animate && value.length > 0) {
+                // Typing animation for better visual feedback
+                let index = 0;
+                const typingSpeed = Math.max(5, Math.min(20, duration / value.length));
 
-            setTimeout(() => {
-                field.style.backgroundColor = '';
+                const typeCharacter = () => {
+                    if (index < value.length) {
+                        field.value = value.substring(0, index + 1);
+                        field.dispatchEvent(new Event('input', {bubbles: true}));
+                        index++;
+                        setTimeout(typeCharacter, typingSpeed);
+                    } else {
+                        // Animation complete, fire change event
+                        field.dispatchEvent(new Event('change', {bubbles: true}));
+
+                        // Remove highlight with fade out
+                        setTimeout(() => {
+                            field.style.backgroundColor = '';
+                            field.style.boxShadow = originalBoxShadow;
+                            setTimeout(() => {
+                                field.style.transition = originalTransition;
+                            }, 300);
+                        }, 200);
+                    }
+                };
+
+                typeCharacter();
+            } else {
+                // No animation, just fill immediately
+                field.value = value;
+                field.dispatchEvent(new Event('input', {bubbles: true}));
+                field.dispatchEvent(new Event('change', {bubbles: true}));
+
+                // Remove highlight
                 setTimeout(() => {
-                    field.style.transition = '';
-                }, 300);
-            }, 300);
+                    field.style.backgroundColor = '';
+                    field.style.boxShadow = originalBoxShadow;
+                    setTimeout(() => {
+                        field.style.transition = originalTransition;
+                    }, 300);
+                }, 200);
+            }
         };
 
         // Create inline autofill icon for credit card fields (purple variant)
@@ -1168,71 +1211,139 @@ export default defineContentScript({
         };
 
         // Show enhanced notification
+        // Enhanced notification system with loading states and animations
         const showNotification = (
             message: string,
-            type: 'success' | 'error' | 'warning' | 'info' = 'info',
+            type: 'success' | 'error' | 'warning' | 'info' | 'loading' = 'info',
             duration: number = 3000
         ) => {
             const notification = document.createElement('div');
+            const notificationId = `sf-notification-${Date.now()}`;
 
             // Color schemes for different types
             const colors = {
-                success: {bg: '#10b981', icon: '✓'},
-                error: {bg: '#ef4444', icon: '✕'},
-                warning: {bg: '#f59e0b', icon: '⚠'},
-                info: {bg: '#3b82f6', icon: 'ℹ'}
+                success: {bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', icon: '✓'},
+                error: {bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', icon: '✕'},
+                warning: {bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', icon: '⚠'},
+                info: {bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', icon: 'ℹ'},
+                loading: {bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', icon: ''}
             };
 
             const color = colors[type];
 
+            notification.id = notificationId;
+            notification.className = 'securefox-notification';
+            notification.setAttribute('role', 'alert');
+            notification.setAttribute('aria-live', 'polite');
             notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 999999;
-        background: ${color.bg};
-        color: white;
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 14px;
-        font-weight: 500;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        animation: slideIn 0.3s ease;
-        max-width: 320px;
-      `;
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 999999;
+                background: ${color.bg};
+                color: white;
+                padding: 14px 18px;
+                border-radius: 12px;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 14px;
+                font-weight: 500;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                animation: securefox-slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                max-width: 360px;
+                min-width: 280px;
+                backdrop-filter: blur(10px);
+            `;
+
+            // Icon or loading spinner
+            let iconHtml = '';
+            if (type === 'loading') {
+                iconHtml = `
+                    <svg class="securefox-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" style="animation: securefox-spin 1s linear infinite;">
+                        <circle cx="12" cy="12" r="10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-dasharray="32" stroke-dashoffset="32"/>
+                    </svg>
+                `;
+            } else {
+                iconHtml = `<span style="font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: rgba(255,255,255,0.2); border-radius: 6px;">${color.icon}</span>`;
+            }
 
             notification.innerHTML = `
-        <span style="font-size: 16px; font-weight: 700;">${color.icon}</span>
-        <span>${message}</span>
-      `;
+                ${iconHtml}
+                <span style="flex: 1;">${message}</span>
+                ${type !== 'loading' ? '<button class="securefox-notification-close" style="background: none; border: none; color: white; opacity: 0.7; cursor: pointer; padding: 4px; font-size: 18px; line-height: 1; transition: opacity 0.2s;">&times;</button>' : ''}
+            `;
 
-            // Add animation
-            const style = document.createElement('style');
-            style.textContent = `
-        @keyframes slideIn {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOut {
-          from { transform: translateX(0); opacity: 1; }
-          to { transform: translateX(100%); opacity: 0; }
-        }
-      `;
-            document.head.appendChild(style);
+            // Add CSS animations and styles
+            if (!document.querySelector('#securefox-notification-styles')) {
+                const style = document.createElement('style');
+                style.id = 'securefox-notification-styles';
+                style.textContent = `
+                    @keyframes securefox-slideIn {
+                        from {
+                            transform: translateX(400px) scale(0.9);
+                            opacity: 0;
+                        }
+                        to {
+                            transform: translateX(0) scale(1);
+                            opacity: 1;
+                        }
+                    }
+                    @keyframes securefox-slideOut {
+                        from {
+                            transform: translateX(0) scale(1);
+                            opacity: 1;
+                        }
+                        to {
+                            transform: translateX(400px) scale(0.9);
+                            opacity: 0;
+                        }
+                    }
+                    @keyframes securefox-spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                    .securefox-notification:hover {
+                        transform: scale(1.02);
+                        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
+                    }
+                    .securefox-notification-close:hover {
+                        opacity: 1 !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
 
             document.body.appendChild(notification);
 
-            // Auto remove after custom duration
-            setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease';
+            // Close button handler
+            const closeBtn = notification.querySelector('.securefox-notification-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    removeNotification();
+                });
+            }
+
+            // Remove function
+            const removeNotification = () => {
+                notification.style.animation = 'securefox-slideOut 0.3s cubic-bezier(0.4, 0, 1, 1)';
                 setTimeout(() => {
-                    notification.remove();
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
                 }, 300);
-            }, duration);
+            };
+
+            // Auto remove (except for loading notifications)
+            if (type !== 'loading') {
+                setTimeout(() => {
+                    removeNotification();
+                }, duration);
+            }
+
+            // Return a function to manually close the notification
+            return { close: removeNotification };
         };
 
         // Handle focus events
@@ -1775,37 +1886,68 @@ export default defineContentScript({
         // Security warnings system
         // 已移除页面加载时的通知警告，只保留用户主动填充时的确认对话框
 
-        // Watch for new fields (SPA support)
-        const observer = new MutationObserver(async () => {
-            // Detect and process new credit card fields FIRST
-            // This prevents CVV (password type) from being misidentified as login fields
-            const newCardFields = detectCardFields();
-            for (const {field, type} of newCardFields) {
-                await createCardIcon(field, type);
+        // Performance optimization: Debounce MutationObserver callback
+        let observerTimeout: NodeJS.Timeout | null = null;
+        const OBSERVER_DEBOUNCE_MS = 100; // Debounce delay in milliseconds
+
+        // Watch for new fields (SPA support) with debouncing
+        const observer = new MutationObserver((mutations) => {
+            // Early exit: Check if any mutation involves input elements
+            const hasRelevantChanges = mutations.some(mutation =>
+                mutation.addedNodes.length > 0 &&
+                Array.from(mutation.addedNodes).some(node =>
+                    node.nodeType === Node.ELEMENT_NODE &&
+                    (
+                        (node as Element).tagName === 'INPUT' ||
+                        (node as Element).tagName === 'FORM' ||
+                        (node as Element).querySelector?.('input')
+                    )
+                )
+            );
+
+            if (!hasRelevantChanges) {
+                return; // Skip if no relevant changes
             }
 
-            // Detect and process new login fields
-            const newLoginFields = detectLoginFields();
-            for (const field of newLoginFields) {
-                field.setAttribute('data-securefox-processed', 'true');
-                await createInlineIcon(field);
+            // Debounce the processing
+            if (observerTimeout) {
+                clearTimeout(observerTimeout);
             }
 
-            // Detect and process new identity fields
-            const newIdentityFields = detectIdentityFields();
-            for (const {field, fieldType} of newIdentityFields) {
-                await createIdentityIcon(field, fieldType);
-            }
+            observerTimeout = setTimeout(async () => {
+                // Detect and process new credit card fields FIRST
+                // This prevents CVV (password type) from being misidentified as login fields
+                const newCardFields = detectCardFields();
+                for (const {field, type} of newCardFields) {
+                    await createCardIcon(field, type);
+                }
 
-            // Update badge when new fields appear
-            if (newLoginFields.length > 0) {
-                updateBadge();
-            }
+                // Detect and process new login fields
+                const newLoginFields = detectLoginFields();
+                for (const field of newLoginFields) {
+                    field.setAttribute('data-securefox-processed', 'true');
+                    await createInlineIcon(field);
+                }
+
+                // Detect and process new identity fields
+                const newIdentityFields = detectIdentityFields();
+                for (const {field, fieldType} of newIdentityFields) {
+                    await createIdentityIcon(field, fieldType);
+                }
+
+                // Update badge when new fields appear
+                if (newLoginFields.length > 0) {
+                    updateBadge();
+                }
+            }, OBSERVER_DEBOUNCE_MS);
         });
 
+        // Use more efficient observer options
         observer.observe(document.body, {
             childList: true,
             subtree: true,
+            // Only observe attributes that affect field detection
+            attributeFilter: ['type', 'name', 'autocomplete', 'class'],
         });
 
         // Initialize when DOM is ready

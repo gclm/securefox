@@ -25,8 +25,31 @@ export class InlineAutofillIcon {
     button.type = 'button';
     button.className = 'securefox-autofill-icon';
     button.setAttribute('data-securefox-icon', 'true');
-    button.setAttribute('aria-label', 'SecureFox 自动填充');
-    button.setAttribute('title', 'SecureFox 自动填充');
+
+    // Enhanced accessibility attributes
+    button.setAttribute('aria-label', 'SecureFox 自动填充 - 点击显示凭据菜单');
+    button.setAttribute('role', 'button');
+    button.setAttribute('tabindex', '0');
+    button.setAttribute('aria-describedby', 'securefox-autofill-help');
+
+    // Create help text for screen readers (hidden visually)
+    const helpText = document.createElement('span');
+    helpText.id = 'securefox-autofill-help';
+    helpText.className = 'securefox-sr-only';
+    helpText.textContent = '使用此按钮快速填充保存的凭据、信用卡或身份信息';
+    helpText.style.cssText = `
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+    `;
+
+    button.appendChild(helpText);
 
     // 样式
     button.style.cssText = `
@@ -55,29 +78,93 @@ export class InlineAutofillIcon {
     const darkerColor = this.adjustColor(this.color, -20);
     const gradientId = `sf-gradient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // SecureFox logo SVG（简化版）
-    button.innerHTML = `
-      <svg width="20" height="20" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="${gradientId}" x1="0%" x2="100%" y1="0%" y2="100%">
-            <stop offset="0%" style="stop-color:${lighterColor};stop-opacity:1"/>
-            <stop offset="100%" style="stop-color:${this.color};stop-opacity:1"/>
-          </linearGradient>
-        </defs>
-        <g transform="translate(256, 320) scale(1.2)">
-          <path fill="url(#${gradientId})" d="M -140 -160 L -100 -220 L -60 -180 Q -80 -140, -100 -130 C -110 -125, -130 -135, -140 -160 Z"/>
-          <path fill="url(#${gradientId})" d="M 140 -160 L 100 -220 L 60 -180 Q 80 -140, 100 -130 C 110 -125, 130 -135, 140 -160 Z"/>
-          <ellipse cx="0" cy="-60" fill="url(#${gradientId})" rx="150" ry="130"/>
-          <path fill="${darkerColor}" d="M -100 0 Q -50 60, 0 80 Q 50 60, 100 0 L 100 -40 L -100 -40 Z"/>
-          <path fill="#1E293B" d="M -150 -60 Q -100 -80, -50 -70 Q 0 -60, 50 -70 Q 100 -80, 150 -60 L 150 -40 Q 100 -30, 50 -35 Q 0 -40, -50 -35 Q -100 -30, -150 -40 Z"/>
-          <circle cx="-50" cy="-60" r="15" fill="#FFF"/>
-          <circle cx="-50" cy="-60" r="8" fill="#1E293B"/>
-          <circle cx="50" cy="-60" r="15" fill="#FFF"/>
-          <circle cx="50" cy="-60" r="8" fill="#1E293B"/>
-          <path fill="#1E293B" d="M -8 20 Q 0 12, 8 20 Q 0 28, -8 20 Z"/>
-        </g>
-      </svg>
-    `;
+    // Create SVG element (instead of innerHTML to preserve helpText)
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNamespace, 'svg');
+    svg.setAttribute('width', '20');
+    svg.setAttribute('height', '20');
+    svg.setAttribute('viewBox', '0 0 512 512');
+    svg.setAttribute('aria-hidden', 'true');
+
+    // Create defs for gradient
+    const defs = document.createElementNS(svgNamespace, 'defs');
+    const gradient = document.createElementNS(svgNamespace, 'linearGradient');
+    gradient.setAttribute('id', gradientId);
+    gradient.setAttribute('x1', '0%');
+    gradient.setAttribute('x2', '100%');
+    gradient.setAttribute('y1', '0%');
+    gradient.setAttribute('y2', '100%');
+
+    const stop1 = document.createElementNS(svgNamespace, 'stop');
+    stop1.setAttribute('offset', '0%');
+    stop1.setAttribute('style', `stop-color:${lighterColor};stop-opacity:1`);
+
+    const stop2 = document.createElementNS(svgNamespace, 'stop');
+    stop2.setAttribute('offset', '100%');
+    stop2.setAttribute('style', `stop-color:${this.color};stop-opacity:1`);
+
+    gradient.appendChild(stop1);
+    gradient.appendChild(stop2);
+    defs.appendChild(gradient);
+    svg.appendChild(defs);
+
+    // Create main group
+    const g = document.createElementNS(svgNamespace, 'g');
+    g.setAttribute('transform', 'translate(256, 320) scale(1.2)');
+
+    // Add fox SVG paths
+    const paths = [
+      { d: 'M -140 -160 L -100 -220 L -60 -180 Q -80 -140, -100 -130 C -110 -125, -130 -135, -140 -160 Z', fill: `url(#${gradientId})` },
+      { d: 'M 140 -160 L 100 -220 L 60 -180 Q 80 -140, 100 -130 C 110 -125, 130 -135, 140 -160 Z', fill: `url(#${gradientId})` },
+      { d: 'M -100 0 Q -50 60, 0 80 Q 50 60, 100 0 L 100 -40 L -100 -40 Z', fill: darkerColor },
+      { d: 'M -150 -60 Q -100 -80, -50 -70 Q 0 -60, 50 -70 Q 100 -80, 150 -60 L 150 -40 Q 100 -30, 50 -35 Q 0 -40, -50 -35 Q -100 -30, -150 -40 Z', fill: '#1E293B' },
+    ];
+
+    paths.forEach(pathData => {
+      const path = document.createElementNS(svgNamespace, 'path');
+      path.setAttribute('d', pathData.d);
+      path.setAttribute('fill', pathData.fill);
+      g.appendChild(path);
+    });
+
+    // Add ellipse
+    const ellipse = document.createElementNS(svgNamespace, 'ellipse');
+    ellipse.setAttribute('cx', '0');
+    ellipse.setAttribute('cy', '-60');
+    ellipse.setAttribute('fill', `url(#${gradientId})`);
+    ellipse.setAttribute('rx', '150');
+    ellipse.setAttribute('ry', '130');
+    g.appendChild(ellipse);
+
+    // Add eyes
+    const eyes = [
+      { cx: -50, cy: -60 },
+      { cx: 50, cy: -60 }
+    ];
+    eyes.forEach(eye => {
+      const whiteCircle = document.createElementNS(svgNamespace, 'circle');
+      whiteCircle.setAttribute('cx', String(eye.cx));
+      whiteCircle.setAttribute('cy', String(eye.cy));
+      whiteCircle.setAttribute('r', '15');
+      whiteCircle.setAttribute('fill', '#FFF');
+      g.appendChild(whiteCircle);
+
+      const pupilCircle = document.createElementNS(svgNamespace, 'circle');
+      pupilCircle.setAttribute('cx', String(eye.cx));
+      pupilCircle.setAttribute('cy', String(eye.cy));
+      pupilCircle.setAttribute('r', '8');
+      pupilCircle.setAttribute('fill', '#1E293B');
+      g.appendChild(pupilCircle);
+    });
+
+    // Add nose
+    const nose = document.createElementNS(svgNamespace, 'path');
+    nose.setAttribute('d', 'M -8 20 Q 0 12, 8 20 Q 0 28, -8 20 Z');
+    nose.setAttribute('fill', '#1E293B');
+    g.appendChild(nose);
+
+    svg.appendChild(g);
+    button.appendChild(svg);
 
     // 鼠标悬停效果（使用自定义颜色的透明版本）
     button.addEventListener('mouseenter', () => {
