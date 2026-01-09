@@ -179,7 +179,7 @@ export default defineBackground(() => {
                         sendResponse({success: true});
                         break;
 
-                    case MESSAGE_TYPES.UNLOCK_VAULT:
+                    case MESSAGE_TYPES.UNLOCK_VAULT: {
                         const unlockResult = await authApi.unlock(message.password);
                         if (unlockResult.success) {
                             await resetAutoLockAlarm();
@@ -187,6 +187,7 @@ export default defineBackground(() => {
                         }
                         sendResponse(unlockResult);
                         break;
+                    }
 
                     case MESSAGE_TYPES.LOCK_VAULT:
                         await authApi.lock();
@@ -196,10 +197,11 @@ export default defineBackground(() => {
                         sendResponse({success: true});
                         break;
 
-                    case MESSAGE_TYPES.GET_STATUS:
+                    case MESSAGE_TYPES.GET_STATUS: {
                         const isUnlocked = await authApi.isUnlocked();
                         sendResponse({isUnlocked});
                         break;
+                    }
 
                     case MESSAGE_TYPES.GET_ALL_ENTRIES:
                         // Get all entries without domain filtering (for cards/identity)
@@ -242,9 +244,9 @@ export default defineBackground(() => {
                         }
                         break;
 
-                    case MESSAGE_TYPES.REQUEST_CREDENTIALS:
+                    case MESSAGE_TYPES.REQUEST_CREDENTIALS: {
                         // Get credentials for the requesting domain
-                        const domain = message.domain || (sender.tab?.url ? new URL(sender.tab.url).hostname : '');
+                        const _domain = message.domain || (sender.tab?.url ? new URL(sender.tab.url).hostname : '');
 
                         try {
                             // Get all entries
@@ -276,6 +278,7 @@ export default defineBackground(() => {
                             sendResponse({entries: [], error: 'Failed to fetch credentials'});
                         }
                         break;
+                    }
 
                     case 'AUTOFILL_CREDENTIALS':
                         // Get credentials by entryId and autofill to active tab
@@ -385,7 +388,7 @@ export default defineBackground(() => {
                         await updateExtensionIcon(false);
                         break;
 
-                    case 'UPDATE_AUTO_LOCK':
+                    case 'UPDATE_AUTO_LOCK': {
                         // Settings updated, restart timer if unlocked
                         const isCurrentlyUnlocked = await authApi.isUnlocked();
                         if (isCurrentlyUnlocked) {
@@ -393,6 +396,7 @@ export default defineBackground(() => {
                         }
                         sendResponse({success: true});
                         break;
+                    }
 
                     case 'UPDATE_BADGE':
                         // Content script detected login form
@@ -602,7 +606,7 @@ export default defineBackground(() => {
                 }
                 break;
 
-            case 'securefox-generate':
+            case 'securefox-generate': {
                 // Generate and insert password
                 const {password} = await entriesApi.generatePassword();
                 chrome.tabs.sendMessage(tab.id, {
@@ -610,6 +614,7 @@ export default defineBackground(() => {
                     data: {password},
                 });
                 break;
+            }
         }
     });
 

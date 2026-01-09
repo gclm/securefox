@@ -14,8 +14,6 @@ export const TOTPCode: React.FC<TOTPCodeProps> = ({entryId, onCopy}) => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-
         const fetchTOTP = async () => {
             try {
                 const response = await getTOTP(entryId);
@@ -34,7 +32,7 @@ export const TOTPCode: React.FC<TOTPCodeProps> = ({entryId, onCopy}) => {
         fetchTOTP();
 
         // 每秒更新
-        interval = setInterval(() => {
+        const interval = setInterval(() => {
             setTimeLeft(prev => {
                 if (prev <= 1) {
                     // 时间到了，重新获取
@@ -48,7 +46,7 @@ export const TOTPCode: React.FC<TOTPCodeProps> = ({entryId, onCopy}) => {
         }, 1000);
 
         return () => {
-            if (interval) clearInterval(interval);
+            clearInterval(interval);
         };
     }, [entryId]);
 
