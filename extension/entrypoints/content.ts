@@ -386,7 +386,7 @@ export default defineContentScript({
                 }
 
                 // Filter for card entries
-                const cards = allEntriesResponse.entries.filter(entry => entry.type === ItemType.Card && entry.card);
+                const cards = allEntriesResponse.entries.filter((entry: any) => entry.type === ItemType.Card && entry.card);
 
                 if (cards.length === 0) {
                     showNotification('密码库中没有保存的信用卡', 'info');
@@ -541,7 +541,7 @@ export default defineContentScript({
                 }
 
                 // Filter for identity entries
-                const identities = allEntriesResponse.entries.filter(entry => entry.type === ItemType.Identity && entry.identity);
+                const identities = allEntriesResponse.entries.filter((entry: any) => entry.type === ItemType.Identity && entry.identity);
 
                 if (identities.length === 0) {
                     showNotification('密码库中没有保存的身份信息', 'info');

@@ -46,6 +46,21 @@ pnpm build            # 构建生产版本
 pnpm zip              # 打包为 .zip（用于发布）
 ```
 
+**⚠️ 重要：代码修改后的验证流程**
+
+每次修改 extension/ 目录下的代码后，**必须**运行以下命令验证：
+
+```bash
+cd extension
+pnpm compile         # TypeScript 类型检查
+pnpm build           # 构建验证
+```
+
+- `pnpm compile` 确保没有 TypeScript 类型错误
+- `pnpm build` 确保扩展可以成功构建
+
+**只有两个命令都成功通过后，代码修改才算完成。**
+
 ### 完整开发工作流
 
 ```bash

@@ -31,8 +31,8 @@ type SettingItem =
     description: string;
     type: 'toggle';
     value: boolean;
-    action?: never;
-    disabled?: never;
+    onChange?: () => void | Promise<void>;
+    disabled?: boolean;
 }
     | {
     icon: LucideIcon;
@@ -42,6 +42,7 @@ type SettingItem =
     type?: never;
     value?: never;
     action?: never;
+    onChange?: never;
 }
     | {
     icon: LucideIcon;
@@ -51,6 +52,7 @@ type SettingItem =
     type?: never;
     value?: never;
     disabled?: never;
+    onChange?: never;
 };
 
 export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
@@ -157,7 +159,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                     description: '点击列表项直接填充凭据',
                     type: 'toggle',
                     value: clickToFill,
-                    action: async () => {
+                    onChange: async () => {
                         await setClickToFill(!clickToFill);
                     }
                 },
@@ -167,7 +169,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                     description: '在列表中显示快速复制按钮',
                     type: 'toggle',
                     value: showQuickCopy,
-                    action: async () => {
+                    onChange: async () => {
                         await setShowQuickCopy(!showQuickCopy);
                     }
                 },
@@ -177,7 +179,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                     description: '自动填充匹配的凭据',
                     type: 'toggle',
                     value: autofillOnPageLoad,
-                    action: async () => {
+                    onChange: async () => {
                         await setAutofillOnPageLoad(!autofillOnPageLoad);
                     }
                 }
@@ -244,7 +246,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                             {group.items.map((item, itemIndex) => (
                                 <button
                                     key={itemIndex}
-                                    onClick={'action' in item ? item.action : undefined}
+                                    onClick={'action' in item ? item.action : 'onChange' in item ? item.onChange : undefined}
                                     disabled={'disabled' in item ? item.disabled : false}
                                     className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
                                         item.disabled
