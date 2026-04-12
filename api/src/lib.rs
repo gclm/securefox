@@ -49,6 +49,8 @@ pub fn create_app(vault_path: PathBuf, unlock_timeout: Duration) -> Router {
     // Protected routes (authentication required)
     let protected_routes = Router::new()
         .route("/lock", post(handlers::auth::lock))
+        // Lightweight ping endpoint (triggers session refresh via auth middleware)
+        .route("/ping", get(handlers::health::ping))
         // Item CRUD routes
         .route("/items", get(handlers::items::list_items))
         .route("/items", post(handlers::items::create_item))

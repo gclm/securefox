@@ -35,7 +35,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
             const response = await authApi.unlock(password);
 
             if (response.success) {
-                const storage = await chrome.storage.session.get(STORAGE_KEYS.SESSION);
+                const storage = await chrome.storage.local.get(STORAGE_KEYS.SESSION);
                 const session = storage[STORAGE_KEYS.SESSION] as Session;
 
                 set({

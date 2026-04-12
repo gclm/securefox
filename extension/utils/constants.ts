@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
     LOCK: '/api/lock',
     STATUS: '/api/status',
     VERSION: '/api/version',
+    PING: '/api/ping',
     ENTRIES: '/api/items',
     FOLDERS: '/api/folders',
     GENERATE: '/api/generate/password',

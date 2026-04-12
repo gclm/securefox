@@ -20,18 +20,23 @@ export default defineBackground(() => {
             keepAliveTimer = null;
         }
 
-        console.log('Starting session keep-alive (heartbeat every 10 minutes)');
-        
-        // Send heartbeat every 10 minutes to keep session alive
+        console.log('Starting session keep-alive (heartbeat every 5 minutes)');
+
+        // Send heartbeat every 5 minutes via authenticated /api/ping endpoint
+        // This triggers the backend's session refresh via the auth middleware
         keepAliveTimer = setInterval(async () => {
             try {
-                const isUnlocked = await authApi.isUnlocked();
-                if (isUnlocked) {
-                    // Make a lightweight API call to refresh session
-                    await authApi.getStatus();
-                    console.log('Session keep-alive: heartbeat sent');
+                const session = await authApi.getSession();
+                if (session && session.token) {
+                    // Authenticated endpoint — backend will refresh session
+                    const ok = await authApi.ping();
+                    if (ok) {
+                        console.log('Session keep-alive: heartbeat sent, session refreshed');
+                    } else {
+                        console.warn('Session keep-alive: ping failed, session may be invalid');
+                    }
                 } else {
-                    // If locked, stop keep-alive
+                    // No active session, stop keep-alive
                     if (keepAliveTimer) {
                         clearInterval(keepAliveTimer);
                         keepAliveTimer = null;
@@ -40,7 +45,7 @@ export default defineBackground(() => {
             } catch (error) {
                 console.error('Session keep-alive failed:', error);
             }
-        }, 10 * 60 * 1000); // Every 10 minutes
+        }, 5 * 60 * 1000); // Every 5 minutes
     };
 
     // Stop session keep-alive
@@ -453,7 +458,7 @@ export default defineBackground(() => {
     // Handle browser startup
     chrome.runtime.onStartup.addListener(async () => {
         // Check if vault should be locked on startup
-        const session = await chrome.storage.session.get(STORAGE_KEYS.SESSION);
+        const session = await chrome.storage.local.get(STORAGE_KEYS.SESSION);
         if (!session[STORAGE_KEYS.SESSION]) {
             await updateExtensionIcon(false);
         }
@@ -527,6 +532,20 @@ export default defineBackground(() => {
                 }
             } catch (error) {
                 console.error('Failed to handle autofill on page load:', error);
+            }
+        }
+    });
+
+    // Handle browser suspension (shutdown) — lock vault when browser fully closes
+    chrome.runtime.onSuspend.addListener(async () => {
+        const minutes = await getAutoLockMinutes();
+        if (minutes === -1) {
+            console.log('Browser shutting down, locking vault...');
+            try {
+                await authApi.lock();
+            } catch {
+                // Best effort — clear local session even if API call fails
+                await authApi.clearSession();
             }
         }
     });

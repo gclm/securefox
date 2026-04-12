@@ -35,9 +35,9 @@ apiClient.interceptors.request.use(
       }
 
       // Check if chrome.storage is available
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         // Get token from storage
-        const storage = await chrome.storage.session.get(STORAGE_KEYS.SESSION);
+        const storage = await chrome.storage.local.get(STORAGE_KEYS.SESSION);
         const session = storage[STORAGE_KEYS.SESSION];
         
         if (session?.token) {
@@ -74,8 +74,8 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
       // Clear session on unauthorized
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
-        await chrome.storage.session.remove(STORAGE_KEYS.SESSION);
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.remove(STORAGE_KEYS.SESSION);
         
         // Send message to notify vault is locked
         chrome.runtime.sendMessage({

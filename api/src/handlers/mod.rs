@@ -337,6 +337,12 @@ pub mod health_impl {
             git_commit: Some(format!("{}{}", git_hash, dirty_marker)),
         })
     }
+
+    /// Lightweight ping endpoint that requires authentication.
+    /// Used by the frontend heartbeat to keep backend sessions alive.
+    pub async fn ping() -> Json<serde_json::Value> {
+        Json(json!({ "ok": true }))
+    }
 }
 
 // Re-export implementations
