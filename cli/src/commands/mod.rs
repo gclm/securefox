@@ -15,9 +15,10 @@ pub mod totp;
 pub mod unlock;
 
 // Sync subcommands
-pub mod sync_config;
+pub mod sync_clone;
 pub mod sync_disable;
 pub mod sync_enable;
+pub mod sync_remote;
 pub mod sync_status;
 
 // Service commands

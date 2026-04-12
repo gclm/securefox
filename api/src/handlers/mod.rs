@@ -345,27 +345,191 @@ pub use generate_impl as generate;
 pub use health_impl as health;
 pub use items_impl as items;
 
-// Placeholder exports for missing modules
-pub mod sync {
-    use crate::{models::SyncResponse, AppState, Result};
+// Sync handler implementations
+pub mod sync_impl {
+    use crate::{
+        models::{CloneRequest, CloneResponse, SyncResponse, SyncStatusResponse},
+        ApiError, AppState, Result,
+    };
     use axum::{extract::State, Json};
 
-    pub async fn push(State(_state): State<AppState>) -> Result<Json<SyncResponse>> {
-        Ok(Json(SyncResponse {
-            success: true,
-            message: "Sync completed".to_string(),
-            items_synced: 0,
-        }))
+    pub async fn push(State(state): State<AppState>) -> Result<Json<SyncResponse>> {
+        #[cfg(feature = "git")]
+        {
+            use securefox_core::git_sync::GitSync;
+            let sync = GitSync::init(&state.vault_path)
+                .map_err(|e| ApiError::Internal(format!("Failed to init git sync: {}", e)))?;
+
+            match sync.smart_sync() {
+                Ok(result) => {
+                    let msg = match (result.pulled, result.pushed) {
+                        (true, true) => "Synced: pulled remote changes and pushed local changes",
+                        (true, false) => "Synced: pulled remote changes",
+                        (false, true) => "Synced: pushed local changes",
+                        (false, false) => "Already up to date",
+                    };
+                    Ok(Json(SyncResponse {
+                        success: result.error.is_none(),
+                        message: msg.to_string(),
+                        items_synced: 0,
+                        pulled: Some(result.pulled),
+                        pushed: Some(result.pushed),
+                        error: result.error,
+                    }))
+                }
+                Err(e) => Err(ApiError::Internal(format!("Sync failed: {}", e))),
+            }
+        }
+        #[cfg(not(feature = "git"))]
+        {
+            let _ = state;
+            Err(ApiError::Internal("Git feature not enabled".to_string()))
+        }
     }
 
-    pub async fn pull(State(_state): State<AppState>) -> Result<Json<SyncResponse>> {
-        Ok(Json(SyncResponse {
-            success: true,
-            message: "Pull completed".to_string(),
-            items_synced: 0,
-        }))
+    pub async fn pull(State(state): State<AppState>) -> Result<Json<SyncResponse>> {
+        #[cfg(feature = "git")]
+        {
+            use securefox_core::git_sync::{GitSync, RetryConfig};
+            let sync = GitSync::init(&state.vault_path)
+                .map_err(|e| ApiError::Internal(format!("Failed to init git sync: {}", e)))?;
+
+            // Check if remote is configured
+            let has_remote = sync.get_remote()
+                .map_err(|e| ApiError::Internal(format!("Failed to check remote: {}", e)))?
+                .is_some();
+
+            if !has_remote {
+                return Err(ApiError::BadRequest(
+                    "No remote configured. Run 'securefox sync config <url>' or use /sync/clone first".to_string()
+                ));
+            }
+
+            match sync.pull_with_retry(&RetryConfig::default()) {
+                Ok(pulled) => Ok(Json(SyncResponse {
+                    success: true,
+                    message: if pulled {
+                        "Pulled remote changes successfully"
+                    } else {
+                        "Already up to date"
+                    }.to_string(),
+                    items_synced: 0,
+                    pulled: Some(pulled),
+                    pushed: None,
+                    error: None,
+                })),
+                Err(e) => Err(ApiError::Internal(format!("Pull failed: {}", e))),
+            }
+        }
+        #[cfg(not(feature = "git"))]
+        {
+            let _ = state;
+            Err(ApiError::Internal("Git feature not enabled".to_string()))
+        }
+    }
+
+    pub async fn clone(State(state): State<AppState>, Json(req): Json<CloneRequest>) -> Result<Json<CloneResponse>> {
+        #[cfg(feature = "git")]
+        {
+            use securefox_core::git_sync::GitSync;
+            use std::collections::HashSet;
+
+            // If vault directory exists but only contains service files, clean it up
+            let service_files: HashSet<&str> = ["service.log", "service.pid", "service.err", "config", ".gitignore"].iter().cloned().collect();
+            if state.vault_path.exists() {
+                if let Ok(entries) = std::fs::read_dir(&state.vault_path) {
+                    let mut only_service = true;
+                    for entry in entries.flatten() {
+                        let name = entry.file_name();
+                        let name_str = name.to_string_lossy();
+                        if name_str != ".git" && !service_files.contains(name_str.as_ref()) {
+                            only_service = false;
+                            break;
+                        }
+                    }
+                    if only_service {
+                        // Safe to remove - only service files present
+                        let _ = std::fs::remove_dir_all(&state.vault_path);
+                    }
+                }
+            }
+
+            match GitSync::clone(&req.remote_url, &state.vault_path) {
+                Ok(result) => Ok(Json(CloneResponse {
+                    success: true,
+                    message: result.message,
+                    vault_path: result.vault_path,
+                })),
+                Err(e) => Err(ApiError::Internal(format!("Clone failed: {}", e))),
+            }
+        }
+        #[cfg(not(feature = "git"))]
+        {
+            let _ = (state, req);
+            Err(ApiError::Internal("Git feature not enabled".to_string()))
+        }
+    }
+
+    pub async fn status(State(state): State<AppState>) -> Result<Json<SyncStatusResponse>> {
+        #[cfg(feature = "git")]
+        {
+            use securefox_core::config::ConfigManager;
+            use securefox_core::git_sync::GitSync;
+
+            let config_manager = ConfigManager::new()
+                .map_err(|e| ApiError::Internal(format!("Failed to load config: {}", e)))?;
+            let config = config_manager.load()
+                .map_err(|e| ApiError::Internal(format!("Failed to load config: {}", e)))?;
+
+            let remote_url = config.remote_url.clone();
+            let sync_config = config.sync_config;
+
+            let sync_enabled = sync_config.as_ref().map(|c| c.enabled).unwrap_or(false);
+            let sync_mode = sync_config.as_ref().map(|c| match &c.mode {
+                securefox_core::models::SyncMode::Manual => "manual".to_string(),
+                securefox_core::models::SyncMode::Auto { .. } => "auto".to_string(),
+            });
+
+            let (has_local_changes, has_remote_updates) = match GitSync::init(&state.vault_path) {
+                Ok(sync) => {
+                    let local = sync.has_local_changes().ok();
+                    let remote = if remote_url.is_some() {
+                        sync.has_remote_updates().ok()
+                    } else {
+                        None
+                    };
+                    (local, remote)
+                }
+                Err(_) => (None, None),
+            };
+
+            Ok(Json(SyncStatusResponse {
+                configured: remote_url.is_some(),
+                remote_url,
+                sync_enabled,
+                sync_mode,
+                has_local_changes,
+                has_remote_updates,
+                last_error: None,
+            }))
+        }
+        #[cfg(not(feature = "git"))]
+        {
+            let _ = state;
+            Ok(Json(SyncStatusResponse {
+                configured: false,
+                remote_url: None,
+                sync_enabled: false,
+                sync_mode: None,
+                has_local_changes: None,
+                has_remote_updates: None,
+                last_error: Some("Git feature not enabled".to_string()),
+            }))
+        }
     }
 }
+
+pub use sync_impl as sync;
 
 pub mod totp {
     use crate::{models::TotpResponse, ApiError, AppState, Result};

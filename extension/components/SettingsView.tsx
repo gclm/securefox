@@ -4,6 +4,7 @@ import {
     ArrowLeft,
     Bell,
     ChevronRight,
+    Cloud,
     Globe,
     HelpCircle,
     Info,
@@ -11,6 +12,8 @@ import {
     Lock,
     LucideIcon,
     MousePointer,
+    RefreshCw,
+    Settings as SettingsIcon,
     Shield,
     Zap
 } from 'lucide-react';
@@ -19,6 +22,8 @@ import {AUTO_LOCK_OPTIONS} from '@/utils/constants';
 import {getVersion} from '@/lib/api';
 import {UriMatchType} from '@/types';
 import {getUserSettings, saveDefaultUriMatchType} from '@/lib/storage';
+import {getSyncStatus, syncPush} from '@/lib/api/sync';
+import type {SyncStatusResponse} from '@/types';
 
 interface SettingsViewProps {
     onBack: () => void;
@@ -51,7 +56,7 @@ type SettingItem =
     action: () => void | Promise<void>;
     type?: never;
     value?: never;
-    disabled?: never;
+    disabled?: boolean;
     onChange?: never;
 };
 
@@ -70,6 +75,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
     const [showAutoLockPicker, setShowAutoLockPicker] = useState(false);
     const [showUriMatchPicker, setShowUriMatchPicker] = useState(false);
     const [defaultUriMatchType, setDefaultUriMatchType] = useState<UriMatchType>(UriMatchType.Domain);
+
+    // Sync state
+    const [syncStatus, setSyncStatus] = useState<SyncStatusResponse | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncError, setSyncError] = useState<string | null>(null);
+    const [showRemoteUrlModal, setShowRemoteUrlModal] = useState(false);
+    const [remoteUrlInput, setRemoteUrlInput] = useState('');
+    const [autoSync, setAutoSync] = useState(true);
+    const [syncInterval, setSyncInterval] = useState(10); // minutes
+    const [showSyncSettingsModal, setShowSyncSettingsModal] = useState(false);
 
     // Load default URI match type on mount
     useEffect(() => {
@@ -123,6 +138,91 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
         queryFn: getVersion,
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     });
+
+    // Load sync status on mount
+    useEffect(() => {
+        getSyncStatus().then(status => {
+            setSyncStatus(status);
+            if (status.remote_url) {
+                setRemoteUrlInput(status.remote_url);
+            }
+        }).catch(() => {
+            // Silent fail - sync may not be configured
+        });
+
+        // Load sync preferences
+        chrome.storage.local.get(['autoSync', 'syncInterval']).then(result => {
+            if (result.autoSync !== undefined) {
+                setAutoSync(result.autoSync);
+            }
+            if (result.syncInterval !== undefined) {
+                setSyncInterval(result.syncInterval);
+            }
+        });
+    }, []);
+
+    const handleSync = async () => {
+        setIsSyncing(true);
+        setSyncError(null);
+
+        try {
+            await syncPush();
+            // Refresh status
+            const status = await getSyncStatus();
+            setSyncStatus(status);
+        } catch (err: any) {
+            setSyncError(err.message || '同步失败');
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleChangeRemote = async () => {
+        if (!remoteUrlInput.trim()) {
+            return;
+        }
+        // Save to storage - actual git remote change would require backend API
+        try {
+            await chrome.storage.local.set({syncRemoteUrl: remoteUrlInput.trim()});
+            setShowRemoteUrlModal(false);
+            // Refresh status
+            const status = await getSyncStatus();
+            setSyncStatus(status);
+        } catch (err: any) {
+            setSyncError(err.message || '保存失败');
+        }
+    };
+
+    const handleAutoSyncChange = async (enabled: boolean) => {
+        setAutoSync(enabled);
+        await chrome.storage.local.set({autoSync: enabled});
+    };
+
+    const handleSyncIntervalChange = async (interval: number) => {
+        setSyncInterval(interval);
+        await chrome.storage.local.set({syncInterval: interval});
+    };
+
+    const getSyncStatusLabel = (): string => {
+        if (syncError) {
+            return `同步失败: ${syncError}`;
+        }
+        if (!syncStatus) {
+            return '获取状态中...';
+        }
+        if (!syncStatus.remote_url) {
+            return '未配置远程';
+        }
+        return '同步就绪';
+    };
+
+    const getSyncIntervalLabel = (minutes: number): string => {
+        if (minutes === 5) return '5分钟';
+        if (minutes === 10) return '10分钟';
+        if (minutes === 30) return '30分钟';
+        if (minutes === 60) return '1小时';
+        return `${minutes}分钟`;
+    };
 
     const settingGroups: Array<{ title: string; items: SettingItem[] }> = [
         {
@@ -194,6 +294,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                     description: '接收重要提醒',
                     type: 'toggle',
                     value: true
+                }
+            ]
+        },
+        {
+            title: '同步设置',
+            items: [
+                {
+                    icon: Cloud,
+                    label: '远程地址',
+                    description: syncStatus?.remote_url || '未配置',
+                    action: () => {
+                        if (syncStatus?.remote_url) {
+                            setRemoteUrlInput(syncStatus.remote_url);
+                        }
+                        setShowRemoteUrlModal(true);
+                    }
+                },
+                {
+                    icon: RefreshCw,
+                    label: '立即同步',
+                    description: isSyncing ? '同步中...' : getSyncStatusLabel(),
+                    action: handleSync,
+                    disabled: isSyncing
+                },
+                {
+                    icon: SettingsIcon,
+                    label: '自动同步',
+                    description: autoSync ? `每${getSyncIntervalLabel(syncInterval)}同步一次` : '已关闭',
+                    action: () => setShowSyncSettingsModal(true)
+                },
+                {
+                    icon: Info,
+                    label: '同步状态',
+                    description: syncError || (syncStatus?.last_error) || '正常',
+                    disabled: true
                 }
             ]
         },
@@ -446,6 +581,116 @@ export const SettingsView: React.FC<SettingsViewProps> = ({onBack}) => {
                         </div>
                         <button
                             onClick={() => setShowUriMatchPicker(false)}
+                            className="w-full mt-4 p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Remote URL Change Modal */}
+            {showRemoteUrlModal && (
+                <div
+                    className="fixed inset-0 bg-black/50 flex items-end z-50"
+                    onClick={() => setShowRemoteUrlModal(false)}
+                >
+                    <div
+                        className="w-full bg-white rounded-t-xl p-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                            更换远程地址
+                        </h3>
+                        <p className="text-xs text-gray-500 mb-4">
+                            输入新的 Git 远程仓库地址（SSH 格式）
+                        </p>
+                        <input
+                            type="text"
+                            value={remoteUrlInput}
+                            onChange={(e) => setRemoteUrlInput(e.target.value)}
+                            placeholder="git@github.com:user/vault.git"
+                            className="w-full h-12 px-4 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400 mb-4"
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowRemoteUrlModal(false)}
+                                className="flex-1 p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleChangeRemote}
+                                disabled={!remoteUrlInput.trim()}
+                                className="flex-1 p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                保存
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Sync Settings Modal */}
+            {showSyncSettingsModal && (
+                <div
+                    className="fixed inset-0 bg-black/50 flex items-end z-50"
+                    onClick={() => setShowSyncSettingsModal(false)}
+                >
+                    <div
+                        className="w-full bg-white rounded-t-xl p-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                            自动同步设置
+                        </h3>
+
+                        {/* Auto-sync toggle */}
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-gray-700">启用自动同步</span>
+                                <button
+                                    onClick={() => handleAutoSyncChange(!autoSync)}
+                                    className={`w-11 h-6 rounded-full transition-colors ${
+                                        autoSync ? 'bg-blue-500' : 'bg-gray-300'
+                                    }`}
+                                >
+                                    <div
+                                        className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
+                                            autoSync ? 'translate-x-5' : 'translate-x-0.5'
+                                        } mt-0.5`}
+                                    />
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                                开启后将在后台自动同步你的密码库
+                            </p>
+                        </div>
+
+                        {/* Sync interval selector */}
+                        {autoSync && (
+                            <div className="mb-4">
+                                <h4 className="text-sm font-medium text-gray-700 mb-3">同步间隔</h4>
+                                <div className="space-y-2">
+                                    {[5, 10, 30, 60].map((interval) => (
+                                        <button
+                                            key={interval}
+                                            onClick={() => handleSyncIntervalChange(interval)}
+                                            className={`w-full p-3 rounded-lg text-left transition-colors ${
+                                                syncInterval === interval
+                                                    ? 'bg-blue-50 text-blue-600 font-medium'
+                                                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            {getSyncIntervalLabel(interval)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={() => setShowSyncSettingsModal(false)}
                             className="w-full mt-4 p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                         >
                             关闭

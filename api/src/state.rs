@@ -98,7 +98,9 @@ impl AppState {
         {
             use securefox_core::git_sync::GitSync;
             if let Ok(sync) = GitSync::init(&self.vault_path) {
-                let _ = sync.auto_commit_push("API vault update");
+                if let Err(e) = sync.auto_commit_push("API vault update") {
+                    tracing::warn!("API auto-sync push failed: {}", e);
+                }
             }
         }
 

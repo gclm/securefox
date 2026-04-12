@@ -38,6 +38,14 @@ impl ConfigManager {
         }
     }
 
+    /// Create a config manager from a vault directory path
+    /// Writes config file in the same directory (e.g., ~/.securefox/config)
+    pub fn with_vault_dir<P: AsRef<Path>>(vault_dir: P) -> Self {
+        Self {
+            config_path: vault_dir.as_ref().join(CONFIG_FILE_NAME),
+        }
+    }
+
     /// Get the config file path
     pub fn path(&self) -> &Path {
         &self.config_path

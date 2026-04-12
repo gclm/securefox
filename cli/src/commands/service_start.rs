@@ -11,6 +11,10 @@ pub async fn execute(
 ) -> Result<()> {
     let vault_path = vault_path.ok_or_else(|| anyhow::anyhow!("Vault path not specified"))?;
 
+    // Ensure vault directory exists
+    fs::create_dir_all(&vault_path)
+        .context(format!("Failed to create vault directory: {}", vault_path.display()))?;
+
     // Check if service is already running
     let pid_file = vault_path.join("service.pid");
     if pid_file.exists() {

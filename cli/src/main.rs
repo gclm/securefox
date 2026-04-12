@@ -206,8 +206,19 @@ enum SyncCommands {
     /// Pull changes from remote
     Pull,
 
-    /// Configure git remote URL
-    Config {
+    /// Clone a remote vault to this computer (new computer setup)
+    Clone {
+        /// Remote git repository URL
+        #[arg(short, long)]
+        remote: String,
+
+        /// Local vault directory (default: ~/.securefox)
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+    },
+
+    /// Set or update the remote git sync URL
+    Remote {
         /// Remote git repository URL
         url: String,
     },
@@ -358,8 +369,11 @@ async fn main() -> Result<()> {
             }
             Some(SyncCommands::Push) => commands::sync::execute(vault_path, false, true).await,
             Some(SyncCommands::Pull) => commands::sync::execute(vault_path, true, false).await,
-            Some(SyncCommands::Config { url }) => {
-                commands::sync_config::execute(vault_path, url).await
+            Some(SyncCommands::Clone { remote, path }) => {
+                commands::sync_clone::execute(remote, path).await
+            }
+            Some(SyncCommands::Remote { url }) => {
+                commands::sync_remote::execute(vault_path, url).await
             }
             Some(SyncCommands::Status) => commands::sync_status::execute(vault_path).await,
             Some(SyncCommands::Enable { mode, interval }) => {

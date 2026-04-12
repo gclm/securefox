@@ -1,5 +1,5 @@
 import {apiCall} from './client';
-import {Session, UnlockRequest, UnlockResponse} from '@/types';
+import {Session, UnlockRequest, UnlockResponse, StatusResponse} from '@/types';
 import {API_ENDPOINTS, STORAGE_KEYS} from '@/utils/constants';
 
 /**
@@ -54,12 +54,8 @@ export async function lock(): Promise<void> {
 /**
  * Get vault status
  */
-export async function getStatus(): Promise<{
-    locked: boolean;
-    configured: boolean;
-    version: string;
-}> {
-    return apiCall('get', API_ENDPOINTS.STATUS);
+export async function getStatus(): Promise<StatusResponse> {
+    return apiCall<StatusResponse>('get', API_ENDPOINTS.STATUS);
 }
 
 /**

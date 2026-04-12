@@ -132,6 +132,39 @@ pub struct SyncResponse {
     pub success: bool,
     pub message: String,
     pub items_synced: usize,
+    /// Sync detail fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pulled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pushed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// Request to clone a remote vault
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CloneRequest {
+    pub remote_url: String,
+}
+
+/// Response from clone operation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CloneResponse {
+    pub success: bool,
+    pub message: String,
+    pub vault_path: String,
+}
+
+/// Sync status information
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SyncStatusResponse {
+    pub configured: bool,
+    pub remote_url: Option<String>,
+    pub sync_enabled: bool,
+    pub sync_mode: Option<String>,
+    pub has_local_changes: Option<bool>,
+    pub has_remote_updates: Option<bool>,
+    pub last_error: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

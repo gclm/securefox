@@ -65,7 +65,7 @@ users = "0.11"
 [features]
 default = ["serve", "git", "keychain"]
 serve = ["dep:securefox-api"]
-git = ["securefox-core/git"]
+git = ["securefox-core/git", "securefox-api?/git"]
 keychain = ["securefox-core/keychain"]
 vendored-ssl = ["securefox-core/vendored-ssl"]
 

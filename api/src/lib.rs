@@ -42,7 +42,9 @@ pub fn create_app(vault_path: PathBuf, unlock_timeout: Duration) -> Router {
     let public_auth_routes = Router::new()
         .route("/unlock", post(handlers::auth::unlock))
         .route("/status", get(handlers::auth::status))
-        .route("/version", get(handlers::health::version));
+        .route("/version", get(handlers::health::version))
+        .route("/sync/clone", post(handlers::sync::clone))
+        .route("/sync/status", get(handlers::sync::status));
 
     // Protected routes (authentication required)
     let protected_routes = Router::new()
@@ -60,7 +62,7 @@ pub fn create_app(vault_path: PathBuf, unlock_timeout: Duration) -> Router {
             "/generate/password",
             post(handlers::generate::generate_password),
         )
-        // Sync routes
+        // Sync routes (push/pull require auth)
         .route("/sync/push", post(handlers::sync::push))
         .route("/sync/pull", post(handlers::sync::pull))
         // Apply auth middleware to protected routes
@@ -127,6 +129,62 @@ pub async fn run(vault_path: PathBuf, host: String, port: u16, unlock_timeout: u
     tracing::info!("  Vault: {}", vault_path.display());
     tracing::info!("  Unlock Timeout: {} seconds", unlock_timeout);
     tracing::info!("{}", "=".repeat(60));
+
+    // Spawn background task for periodic pull if git feature is enabled
+    #[cfg(feature = "git")]
+    {
+        use securefox_core::config::ConfigManager;
+        use securefox_core::git_sync::{GitSync, RetryConfig};
+        use tokio::time::{interval, Duration};
+
+        let vault_path_clone = vault_path.clone();
+        tokio::spawn(async move {
+            // Wait a bit for service to stabilize
+            tokio::time::sleep(Duration::from_secs(10)).await;
+
+            // Determine pull interval from config
+            let interval_secs = match ConfigManager::new() {
+                Ok(cm) => match cm.load() {
+                    Ok(config) => {
+                        if let Some(sync) = config.sync_config {
+                            if sync.enabled {
+                                match sync.mode {
+                                    securefox_core::models::SyncMode::Auto { interval_seconds } => interval_seconds,
+                                    securefox_core::models::SyncMode::Manual => 600,
+                                }
+                            } else {
+                                0 // sync disabled
+                            }
+                        } else {
+                            600
+                        }
+                    }
+                    Err(_) => 600,
+                },
+                Err(_) => 600,
+            };
+
+            if interval_secs == 0 {
+                tracing::info!("Periodic pull disabled (sync not enabled or manual mode)");
+                return;
+            }
+
+            tracing::info!("Periodic pull started (every {} seconds)", interval_secs);
+            let mut ticker = interval(Duration::from_secs(interval_secs));
+            ticker.tick().await;
+
+            loop {
+                ticker.tick().await;
+                if let Ok(sync) = GitSync::init(&vault_path_clone) {
+                    if let Err(e) = sync.pull_with_retry(&RetryConfig::default()) {
+                        tracing::warn!("Periodic pull failed: {}", e);
+                    } else {
+                        tracing::info!("Periodic pull: checked for remote updates");
+                    }
+                }
+            }
+        });
+    }
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await

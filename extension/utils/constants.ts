@@ -12,6 +12,11 @@ export const API_ENDPOINTS = {
     FOLDERS: '/api/folders',
     GENERATE: '/api/generate/password',
     TOTP: '/api/totp',
+    // Sync endpoints
+    SYNC_PUSH: '/api/sync/push',
+    SYNC_PULL: '/api/sync/pull',
+    SYNC_CLONE: '/api/sync/clone',
+    SYNC_STATUS: '/api/sync/status',
 } as const;
 
 // Storage Keys

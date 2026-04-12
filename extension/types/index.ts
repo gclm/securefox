@@ -95,6 +95,14 @@ export interface CustomField {
     type: FieldType;
 }
 
+// Status response type
+export interface StatusResponse {
+    locked: boolean;
+    configured: boolean;
+    version: string;
+    vault_exists: boolean;
+}
+
 // API types
 export interface UnlockRequest {
     password: string;
@@ -139,6 +147,36 @@ export interface TOTPResponse {
 export interface Session {
     token: string;
     locked: boolean;
+}
+
+// Sync types
+export interface SyncStatusResponse {
+    configured: boolean;
+    remote_url: string | null;
+    sync_enabled: boolean;
+    sync_mode: string | null;
+    has_local_changes: boolean | null;
+    has_remote_updates: boolean | null;
+    last_error: string | null;
+}
+
+export interface SyncResponse {
+    success: boolean;
+    message: string;
+    items_synced: number;
+    pulled?: boolean;
+    pushed?: boolean;
+    error?: string;
+}
+
+export interface CloneRequest {
+    remote_url: string;
+}
+
+export interface CloneResponse {
+    success: boolean;
+    message: string;
+    vault_path: string;
 }
 
 // UI types
