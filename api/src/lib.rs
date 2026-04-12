@@ -149,7 +149,9 @@ pub async fn run(vault_path: PathBuf, host: String, port: u16, unlock_timeout: u
                         if let Some(sync) = config.sync_config {
                             if sync.enabled {
                                 match sync.mode {
-                                    securefox_core::models::SyncMode::Auto { interval_seconds } => interval_seconds,
+                                    securefox_core::models::SyncMode::Auto { interval_seconds } => {
+                                        interval_seconds
+                                    }
                                     securefox_core::models::SyncMode::Manual => 600,
                                 }
                             } else {

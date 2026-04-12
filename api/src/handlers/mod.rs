@@ -395,7 +395,8 @@ pub mod sync_impl {
                 .map_err(|e| ApiError::Internal(format!("Failed to init git sync: {}", e)))?;
 
             // Check if remote is configured
-            let has_remote = sync.get_remote()
+            let has_remote = sync
+                .get_remote()
                 .map_err(|e| ApiError::Internal(format!("Failed to check remote: {}", e)))?
                 .is_some();
 
@@ -412,7 +413,8 @@ pub mod sync_impl {
                         "Pulled remote changes successfully"
                     } else {
                         "Already up to date"
-                    }.to_string(),
+                    }
+                    .to_string(),
                     items_synced: 0,
                     pulled: Some(pulled),
                     pushed: None,
@@ -428,14 +430,26 @@ pub mod sync_impl {
         }
     }
 
-    pub async fn clone(State(state): State<AppState>, Json(req): Json<CloneRequest>) -> Result<Json<CloneResponse>> {
+    pub async fn clone(
+        State(state): State<AppState>,
+        Json(req): Json<CloneRequest>,
+    ) -> Result<Json<CloneResponse>> {
         #[cfg(feature = "git")]
         {
             use securefox_core::git_sync::GitSync;
             use std::collections::HashSet;
 
             // If vault directory exists but only contains service files, clean it up
-            let service_files: HashSet<&str> = ["service.log", "service.pid", "service.err", "config", ".gitignore"].iter().cloned().collect();
+            let service_files: HashSet<&str> = [
+                "service.log",
+                "service.pid",
+                "service.err",
+                "config",
+                ".gitignore",
+            ]
+            .iter()
+            .cloned()
+            .collect();
             if state.vault_path.exists() {
                 if let Ok(entries) = std::fs::read_dir(&state.vault_path) {
                     let mut only_service = true;
@@ -478,7 +492,8 @@ pub mod sync_impl {
 
             let config_manager = ConfigManager::new()
                 .map_err(|e| ApiError::Internal(format!("Failed to load config: {}", e)))?;
-            let config = config_manager.load()
+            let config = config_manager
+                .load()
                 .map_err(|e| ApiError::Internal(format!("Failed to load config: {}", e)))?;
 
             let remote_url = config.remote_url.clone();

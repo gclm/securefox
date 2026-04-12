@@ -19,8 +19,7 @@ pub async fn execute(remote_url: String, local_path: Option<PathBuf>) -> Result<
         println!("  Local:  {}", vault_path.display().to_string().cyan());
         println!();
 
-        let result = GitSync::clone(&remote_url, &vault_path)
-            .context("Failed to clone vault")?;
+        let result = GitSync::clone(&remote_url, &vault_path).context("Failed to clone vault")?;
 
         println!("{}", "✓ Vault cloned successfully!".green().bold());
         println!();

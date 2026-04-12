@@ -38,7 +38,10 @@ pub async fn execute(vault_path: Option<PathBuf>, remote_url: String) -> Result<
         println!();
         println!("Next steps:");
         println!("  securefox sync          # Sync vault (pull + push)");
-        println!("  securefox sync clone --remote {}  # Clone from remote", remote_url.cyan());
+        println!(
+            "  securefox sync clone --remote {}  # Clone from remote",
+            remote_url.cyan()
+        );
         Ok(())
     }
 

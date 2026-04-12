@@ -147,7 +147,9 @@ impl VaultStorage {
                         if let Some(vault_dir) = self.vault_path.parent() {
                             // Try to sync, but don't fail the save operation if sync fails
                             if let Ok(git_sync) = GitSync::init(vault_dir) {
-                                if let Err(e) = git_sync.auto_commit_push("Auto-sync: vault updated") {
+                                if let Err(e) =
+                                    git_sync.auto_commit_push("Auto-sync: vault updated")
+                                {
                                     tracing::warn!("Auto-sync push failed: {}", e);
                                 }
                             }

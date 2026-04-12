@@ -289,7 +289,8 @@ impl GitSync {
     /// Perform a three-way merge (backwards compatible)
     #[allow(dead_code)]
     fn merge(&self, remote_commit: &git2::AnnotatedCommit) -> Result<()> {
-        self.merge_inner(remote_commit).map_err(|e| Error::Other(e.to_string()))
+        self.merge_inner(remote_commit)
+            .map_err(|e| Error::Other(e.to_string()))
     }
 
     /// Resolve merge conflicts for JSON files
@@ -500,13 +501,17 @@ impl GitSync {
     ///
     /// Returns `Ok(true)` if remote was pulled (there were updates),
     /// `Ok(false)` if already up to date.
-    pub fn pull_with_retry(&self, retry_config: &RetryConfig) -> std::result::Result<bool, SyncError> {
+    pub fn pull_with_retry(
+        &self,
+        retry_config: &RetryConfig,
+    ) -> std::result::Result<bool, SyncError> {
         let mut last_error: Option<SyncError> = None;
 
         for attempt in 0..=retry_config.max_retries {
             if attempt > 0 {
                 let delay_ms = std::cmp::min(
-                    retry_config.initial_delay_ms * retry_config.backoff_multiplier.pow(attempt - 1),
+                    retry_config.initial_delay_ms
+                        * retry_config.backoff_multiplier.pow(attempt - 1),
                     retry_config.max_delay_ms,
                 );
                 tracing::warn!(
@@ -534,10 +539,14 @@ impl GitSync {
 
     /// Internal pull implementation — returns true if there were remote updates
     fn pull_inner(&self) -> std::result::Result<bool, SyncError> {
-        let mut remote = self.repo.find_remote(&self.remote_name).map_err(SyncError::from)?;
+        let mut remote = self
+            .repo
+            .find_remote(&self.remote_name)
+            .map_err(SyncError::from)?;
 
         let mut callbacks = RemoteCallbacks::new();
-        callbacks.credentials(|_url, username, cred_type| self.get_credentials(username, cred_type));
+        callbacks
+            .credentials(|_url, username, cred_type| self.get_credentials(username, cred_type));
         callbacks.certificate_check(|_cert, _host| Ok(git2::CertificateCheckStatus::CertificateOk));
 
         let mut fetch_options = FetchOptions::new();
@@ -549,11 +558,20 @@ impl GitSync {
             .map_err(SyncError::from)?;
 
         // Get remote branch
-        let fetch_head = self.repo.find_reference("FETCH_HEAD").map_err(SyncError::from)?;
-        let fetch_commit = self.repo.reference_to_annotated_commit(&fetch_head).map_err(SyncError::from)?;
+        let fetch_head = self
+            .repo
+            .find_reference("FETCH_HEAD")
+            .map_err(SyncError::from)?;
+        let fetch_commit = self
+            .repo
+            .reference_to_annotated_commit(&fetch_head)
+            .map_err(SyncError::from)?;
 
         // Perform merge
-        let analysis = self.repo.merge_analysis(&[&fetch_commit]).map_err(SyncError::from)?;
+        let analysis = self
+            .repo
+            .merge_analysis(&[&fetch_commit])
+            .map_err(SyncError::from)?;
 
         if analysis.0.is_up_to_date() {
             return Ok(false);
@@ -562,7 +580,9 @@ impl GitSync {
         if analysis.0.is_fast_forward() {
             // Fast-forward
             let mut reference = self.repo.find_reference("HEAD").map_err(SyncError::from)?;
-            reference.set_target(fetch_commit.id(), "Fast-forward").map_err(SyncError::from)?;
+            reference
+                .set_target(fetch_commit.id(), "Fast-forward")
+                .map_err(SyncError::from)?;
             self.repo
                 .set_head(&format!("refs/heads/{}", self.branch_name))
                 .map_err(SyncError::from)?;
@@ -578,14 +598,35 @@ impl GitSync {
     }
 
     /// Internal merge implementation
-    fn merge_inner(&self, remote_commit: &git2::AnnotatedCommit) -> std::result::Result<(), SyncError> {
-        let local_commit = self.repo.head().map_err(SyncError::from)?.peel_to_commit().map_err(SyncError::from)?;
-        let remote_tree = self.repo.find_commit(remote_commit.id()).map_err(SyncError::from)?.tree().map_err(SyncError::from)?;
+    fn merge_inner(
+        &self,
+        remote_commit: &git2::AnnotatedCommit,
+    ) -> std::result::Result<(), SyncError> {
+        let local_commit = self
+            .repo
+            .head()
+            .map_err(SyncError::from)?
+            .peel_to_commit()
+            .map_err(SyncError::from)?;
+        let remote_tree = self
+            .repo
+            .find_commit(remote_commit.id())
+            .map_err(SyncError::from)?
+            .tree()
+            .map_err(SyncError::from)?;
         let local_tree = local_commit.tree().map_err(SyncError::from)?;
 
         // Find merge base
-        let base = self.repo.merge_base(local_commit.id(), remote_commit.id()).map_err(SyncError::from)?;
-        let base_tree = self.repo.find_commit(base).map_err(SyncError::from)?.tree().map_err(SyncError::from)?;
+        let base = self
+            .repo
+            .merge_base(local_commit.id(), remote_commit.id())
+            .map_err(SyncError::from)?;
+        let base_tree = self
+            .repo
+            .find_commit(base)
+            .map_err(SyncError::from)?
+            .tree()
+            .map_err(SyncError::from)?;
 
         // Perform merge
         let mut index = self
@@ -602,9 +643,19 @@ impl GitSync {
         let tree = self.repo.find_tree(tree_id).map_err(SyncError::from)?;
 
         // Create merge commit
-        let signature = self.get_signature().map_err(|e| SyncError::Other(e.to_string()))?;
-        let local_commit = self.repo.head().map_err(SyncError::from)?.peel_to_commit().map_err(SyncError::from)?;
-        let remote_commit = self.repo.find_commit(remote_commit.id()).map_err(SyncError::from)?;
+        let signature = self
+            .get_signature()
+            .map_err(|e| SyncError::Other(e.to_string()))?;
+        let local_commit = self
+            .repo
+            .head()
+            .map_err(SyncError::from)?
+            .peel_to_commit()
+            .map_err(SyncError::from)?;
+        let remote_commit = self
+            .repo
+            .find_commit(remote_commit.id())
+            .map_err(SyncError::from)?;
 
         self.repo
             .commit(
@@ -625,20 +676,27 @@ impl GitSync {
     /// This is the primary flow for setting up a vault on a new computer:
     /// 1. Clone the git repo (containing vault.sf)
     /// 2. The vault.sf file is now available for decryption with the master password
-    pub fn clone<P: AsRef<Path>>(remote_url: &str, local_path: P) -> std::result::Result<CloneResult, SyncError> {
+    pub fn clone<P: AsRef<Path>>(
+        remote_url: &str,
+        local_path: P,
+    ) -> std::result::Result<CloneResult, SyncError> {
         let local_path = local_path.as_ref();
 
         // Create parent directory if needed
         if let Some(parent) = local_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| SyncError::Config(format!("Failed to create directory: {}", e)))?;
+            fs::create_dir_all(parent)
+                .map_err(|e| SyncError::Config(format!("Failed to create directory: {}", e)))?;
         }
 
-        tracing::info!("Cloning vault from {} to {}", remote_url, local_path.display());
+        tracing::info!(
+            "Cloning vault from {} to {}",
+            remote_url,
+            local_path.display()
+        );
 
         let mut callbacks = RemoteCallbacks::new();
-        callbacks.credentials(|_url, username, cred_type| {
-            Self::static_credentials(username, cred_type)
-        });
+        callbacks
+            .credentials(|_url, username, cred_type| Self::static_credentials(username, cred_type));
         callbacks.certificate_check(|_cert, _host| Ok(git2::CertificateCheckStatus::CertificateOk));
 
         let mut fetch_options = FetchOptions::new();
